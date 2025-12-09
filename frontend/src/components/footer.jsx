@@ -32,9 +32,9 @@ const Footer = () => {
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="h6" gutterBottom>Seguinos</Typography>
             <Stack direction="row" spacing={2}>
-              <IconButton color="inherit" href="www.prioritygroup.com.ar" target="_blank"><LinkedInIcon /></IconButton>
+              <IconButton color="inherit" href="http://prioritygroup.com.ar" target="_blank"><LinkedInIcon /></IconButton>
               
-              <IconButton color="inherit" href="www.prioritygroup.com.ar" target="_blank"><InstagramIcon /></IconButton>
+              <IconButton color="inherit" href="http://prioritygroup.com.ar" target="_blank"><InstagramIcon /></IconButton>
             </Stack>
           </Grid>
         </Grid>

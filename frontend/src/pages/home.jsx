@@ -73,32 +73,11 @@ const cardVariants = {
 
 // ===== Datos =====
 const valores = [
-  { icon: LightbulbIcon, title: 'DINAMISMO', text: 'Orientación a la proactividad, movimiento permanente y mejora continua.' },
+  { icon: LightbulbIcon, title: 'DINAMISMO', text: 'Orientación a la proactividad y la búsqueda constante de opciones atractivas para la construcción de riqueza, con el fin de ofrecer lo mejor a nuestros clientes ' },
   { icon: SchoolIcon, title: 'COMPROMISO', text: 'Trabajamos para promover el desarrollo personal y profesional de cada uno de nuestros colaboradores en un ambiente agradable y de trabajo en equipo' },
-
   { icon: FavoriteIcon, title: 'CERCANÍA', text: 'Somos una compañía argentina, integrada por un grupo humano con una clara pasión por el servicio al cliente y que trabaja incansablemente para estar cerca de ellos' },
 ];
-const testimonios = [
-  {
-    nombre: 'Bautista Palma.',
-    rol: 'Pasante Administrativo',
-    frase: 'ASYTEC es mi primera experiencia trabajando y me ayudará a abrir nuevas puertas en el mundo laboral. Es una gran Oportunidad.',
-    foto: '../testimonios/t2.png'
-  },
-  {
-    nombre: 'Agustin Gonzalez',
-    rol: 'Soporte Técnico',
-    frase: 'Agradezco la oportunidad y el reconocimiento que me da ASYTEC, y valoro formar parte de este equipo',
-    foto: '../testimonios/t1.png'
-  },
-  {
-    nombre: 'Joan Valenzuela.',
-    rol: 'Analista de Ciberseguridad',
-    frase: 'Muy feliz por salir de la zona de confort para cumplir sueños y animarme a crecer. Gracias ASYTEC por confiar en mis capacidades',
-    foto: '../testimonios/t3.png'
-  },
-  
-];
+
 
 const areas = [
   { title: 'Recursos Humanos', tags: ['Seleccion', 'Capacitación', 'Clima'], img: 'https://images.unsplash.com/photo-1551836022-4c4c79ecde51?auto=format&fit=crop&w=1200&q=60', path: '/searches?area=Recursos Humanos' },
@@ -296,8 +275,13 @@ const Home = () => {
                     <Box sx={{ p: 2, pt: 0 }}>
                       <Button
                         fullWidth
-                        variant="outlined"
+                        variant="contained"
                         onClick={() => navigate(a.path)}
+                        sx={{
+                          backgroundColor: '#0A5C8D',
+                          color: 'white',
+                          '&:hover': { backgroundColor: '#084a70' }
+                        }}
                       >
                         Ver vacantes
                       </Button>
@@ -309,13 +293,6 @@ const Home = () => {
           </Grid>
         </Container>
       </motion.section>
-
-
-
-
-      {/* ===== TESTIMONIOS (carrusel simple) ===== */}
-
-
 
 
       {/* ===== FAQ ===== */}
