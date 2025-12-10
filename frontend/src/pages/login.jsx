@@ -138,13 +138,7 @@ export default function Login() {
 
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-        <img
-          src="/logo1.png"
-          alt="Priority Group Logo"
-          style={{ height: '60px', width: 'auto' }}
-        />
-      </Box>
+     
 
       <Paper sx={{ p: { xs: 3, sm: 5 }, borderRadius: 3 }} elevation={4}>
         <form id="login-form" onSubmit={handleSubmit} style={{ width: "100%" }}>

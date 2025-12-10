@@ -88,7 +88,7 @@ const areas = [
 const heroTaglines = [
   "El éxito de una buena planificación financiera personal",
   "reside en lograr el equilibrio justo en la relación ",
-  "entre el cliente, su asesor financiero y las compañías",
+  "entre el cliente, su asesor financiero y las compañías.",
 ];
 const Home = () => {
   const navigate = useNavigate();
@@ -163,7 +163,7 @@ const Home = () => {
                 loop={true}
                 speed={50}
                 deleteSpeed={30}
-                waitTime={2500}
+                waitTime={1500}
                 // Hacemos que el cursor tenga el mismo estilo que el texto
                 cursorClassName="MuiTypography-h5" 
               />

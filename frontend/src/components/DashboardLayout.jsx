@@ -182,7 +182,7 @@ export default function DashboardLayout() {
               mr: 2,
               // Comentamos la siguiente línea si queremos que siempre se vea el botón para abrir manualmente
               // ...(open && { display: "none" }),
-              color: theme.palette.common.white
+              color: theme.palette.common.black
             }}
           >
             {open ? <ChevronLeftIcon /> : <MenuIcon />} {/* Cambia el icono si está abierto */}
@@ -200,7 +200,7 @@ export default function DashboardLayout() {
           >
             {/* Reemplaza '/logo.png' con la ruta a tu logo */}
             <Box component="img" src="/logo1.png" alt="rrhh-logo" sx={{
-              height: '35px', // Ajusta la altura según necesites
+              height: '55px', // Ajusta la altura según necesites
               width: 'auto'
             }} />
           </Box>

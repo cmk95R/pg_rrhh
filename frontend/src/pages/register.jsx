@@ -135,13 +135,7 @@ export default function RegisterForm() {
 
   return (
     <Container maxWidth="sm" sx={{ py: 6 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-        <img
-          src="/logo1.png"
-          alt="Priority Group Logo"
-          style={{ height: '60px', width: 'auto' }}
-        />
-      </Box>
+        
 
       <Paper sx={{ p: { xs: 3, sm: 4 }, borderRadius: 3 }} elevation={4}>
         <Typography variant="h4" fontWeight={700} gutterBottom>
