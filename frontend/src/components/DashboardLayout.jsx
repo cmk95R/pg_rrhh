@@ -170,7 +170,8 @@ export default function DashboardLayout() {
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
       <AppBar position="fixed" open={open}>
-        <Toolbar sx={{ display: "flex", alignItems: "center" }}>
+        <Toolbar sx={{ display: "flex", alignItems: "center", pt: '5px',
+              pb: '5px', }}>
           {/* EL ICONO DE HAMBURGUESA SE QUITA O SE HACE CONDICIONAL SI EL HOVER ES LA FORMA PRINCIPAL DE ABRIR */}
           {/* Si quieres mantenerlo para una apertura manual en móviles o como alternativa: */}
           <IconButton
@@ -200,7 +201,8 @@ export default function DashboardLayout() {
           >
             {/* Reemplaza '/logo.png' con la ruta a tu logo */}
             <Box component="img" src="/logo1.png" alt="rrhh-logo" sx={{
-              height: '55px', // Ajusta la altura según necesites
+              
+              height: '60px', // Ajusta la altura según necesites
               width: 'auto'
             }} />
           </Box>

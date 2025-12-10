@@ -142,7 +142,7 @@ export default function Login() {
 
       <Paper sx={{ p: { xs: 3, sm: 5 }, borderRadius: 3 }} elevation={4}>
         <form id="login-form" onSubmit={handleSubmit} style={{ width: "100%" }}>
-          <Typography variant="h4" fontWeight={700} gutterBottom>
+          <Typography variant="h4" fontWeight={700} gutterBottom align="center">
             Bienvenido
           </Typography>
           <Typography variant="body1" sx={{ mb: 3 }}>
