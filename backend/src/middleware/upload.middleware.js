@@ -3,7 +3,7 @@
 import multer from "multer";
 
 // Usamos memoryStorage porque no queremos guardar el archivo en el disco del servidor.
-// Lo procesaremos en memoria y lo enviaremos directamente a OneDrive.
+// Lo procesaremos en memoria y lo enviaremos directamente a Google Drive.
 const storage = multer.memoryStorage();
 
 // Filtro para aceptar solo archivos PDF

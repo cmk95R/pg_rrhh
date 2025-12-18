@@ -5,10 +5,10 @@ import Cv from "../models/Cv.js"; // Corregido a 'Cv' si tu importación es así
 import Application from "../models/Application.js";
 import Search from "../models/Search.js"; // Necesario para applyToSearch
 import {
-  uploadFileToOneDrive,
+  uploadFileToGoogleDrive,
   getDownloadUrlForFile,
-  deleteFileFromOneDrive // Asegúrate que esta función existe en tu servicio
-} from "../services/oneDrive.service.js";
+  deleteFileFromGoogleDrive
+} from "../services/gDrive.service.js";
 
 const ALLOWED_FIELDS = new Set([
   "nombre", "apellido", "nacimiento", "perfil", "telefono",
@@ -58,22 +58,23 @@ async function normalizePayload(body, file, user) {
     if (existingCv?.cvFile?.providerId) {
       oldFileIdToDelete = existingCv.cvFile.providerId;
     }
-    const oldFileName = existingCv?.cvFile?.fileName; // Nombre del archivo anterior
     const oldFileId = existingCv?.cvFile?.providerId; // ID del archivo anterior
 
-    // Define el nombre del archivo: reutiliza el anterior o crea uno nuevo
-    const originalName = file.originalname.split('.').slice(0, -1).join('_').replace(/[^a-zA-Z0-9]/g, '');
-    const fileName = oldFileName || `CV_${originalName}_${user._id}.pdf`;
+    // Define el nombre del archivo usando Nombre y Apellido del usuario
+    const cleanStr = (str) => (str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
+    const uNombre = cleanStr(user.nombre);
+    const uApellido = cleanStr(user.apellido);
+    const fileName = `CV_${uNombre}_${uApellido}_${user._id}.pdf`;
 
-    const uploadResult = await uploadFileToOneDrive(file.buffer, fileName, "CVs");
+    const uploadResult = await uploadFileToGoogleDrive(file.buffer, fileName);
 
     $set.cvFile = {
       fileName: fileName,
       providerId: uploadResult.id, // Actualiza el ID (puede cambiar)
-      url: uploadResult.webUrl,    // Actualiza la URL
+      url: uploadResult.webViewLink,    // Actualiza la URL
       mimetype: file.mimetype,
       size: file.size,
-      provider: "onedrive",
+      provider: "google",
     };
 
     // Si el nuevo archivo tiene el mismo providerId que el anterior, significa que fue sobrescrito.
@@ -123,10 +124,10 @@ export const upsertMyCV = async (req, res, next) => {
       await User.findByIdAndUpdate(req.user._id, { $set: userUpdate }); // Usa $set para actualizar User
     }
 
-    // Elimina el archivo antiguo de OneDrive DESPUÉS de guardar con éxito el nuevo
+    // Elimina el archivo antiguo de Google Drive DESPUÉS de guardar con éxito el nuevo
     if (oldFileIdToDelete && $set.cvFile?.providerId !== oldFileIdToDelete) {
-       console.log(`Intentando eliminar archivo antiguo de OneDrive: ${oldFileIdToDelete}`);
-       deleteFileFromOneDrive(oldFileIdToDelete); // No esperamos (fire-and-forget)
+       console.log(`Intentando eliminar archivo antiguo de Google Drive: ${oldFileIdToDelete}`);
+       deleteFileFromGoogleDrive(oldFileIdToDelete); // No esperamos (fire-and-forget)
     }
 
     return res.json({ cv, message: "CV actualizado" });
