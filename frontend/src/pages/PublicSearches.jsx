@@ -125,7 +125,7 @@ export default function PublicSearches() {
   }, [estadoParam]);
 
   return (
-    <Box sx={{ bgcolor: "#CFE6FF", p: 4, minHeight: "100vh" }}>
+    <Box sx={{ bgcolor: "#d1d1d1c4", p: 4, minHeight: "100vh" }}>
       <Typography variant="h5" gutterBottom>
         Busquedas Activas
       </Typography>
