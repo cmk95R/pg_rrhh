@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 
-export const AREAS = ["Administracion", "Recursos Humanos", "Sistemas", "Pasantia"];
 export const ESTADOS = ["Activa", "Pausada", "Cerrada"];
 
 const searchSchema = new mongoose.Schema(
   {
     titulo:     { type: String, required: true, trim: true },
-    area:       { type: String, enum: AREAS, required: true },
+    // Se elimina el enum fijo para permitir áreas dinámicas desde la colección Area
+    area:       { type: String, required: true, trim: true },
     estado:     { type: String, enum: ESTADOS, default: "Activa" },
     ubicacion:  { type: String, trim: true, default: "" },
     descripcion:{ type: String, trim: true, default: "" },

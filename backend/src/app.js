@@ -15,6 +15,7 @@ import searchesRoutes from "./routes/searches.routes.js"; // Rutas públicas y d
 import applicationsRoutes from "./routes/applications.routes.js"; // Rutas de usuario
 import adminRoutes from "./routes/adminRoutes.js"; // <-- CORRECCIÓN: Importamos el router de admin centralizado
 import geoRoutes from "./routes/geoRoutes.js"; // Rutas públicas
+import areasRoutes from "./routes/areas.routes.js";
 import { initGooglePassport } from "./auth/google.strategy.js";
 
 dotenv.config();
@@ -88,6 +89,7 @@ apiRouter.use("/cv", cvRoutes);                // /api/cv/... (Rutas /me para el
 apiRouter.use("/searches", searchesRoutes);    // /api/searches/... (Listar, Detalle, Apply)
 apiRouter.use("/applications", applicationsRoutes); // /api/applications/... (Rutas /me y /:id para postulaciones del usuario)
 apiRouter.use("/geo", geoRoutes);              // /api/geo/... (Provincias, Localidades - públicas)
+apiRouter.use("/areas", areasRoutes);          // /api/areas/... (Gestión de áreas)
 // Montamos TODAS las rutas de admin bajo /api/admin
 apiRouter.use("/admin", adminRoutes);
 // Finalmente, montamos el router principal de la API en la app

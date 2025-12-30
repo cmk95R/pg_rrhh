@@ -23,18 +23,18 @@ const Footer = () => {
           {/* Columna contacto */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="h6" gutterBottom>Contacto</Typography>
-            <Typography variant="body2">Av. Roque Saenz Peña 1119 P4 Of 401 CABA (C1035AAT)</Typography>
+            <Typography variant="body2">Reconquista N°672 Piso 3 - CABA</Typography>
             <Typography variant="body2">Tel: +54 11 2152 6450</Typography>
-            <Typography variant="body2">Email: info@prioritygroup.com.ar</Typography>
+            <Typography variant="body2">Email: rrhh@prioritygroup.com.ar</Typography>
           </Grid>
 
           {/* Columna redes sociales */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="h6" gutterBottom>Seguinos</Typography>
             <Stack direction="row" spacing={2}>
-              <IconButton color="inherit" href="http://prioritygroup.com.ar" target="_blank"><LinkedInIcon /></IconButton>
+              <IconButton color="inherit" href="https://www.linkedin.com/company/prioritygroup-consultora/" target="_blank"><LinkedInIcon /></IconButton>
               
-              <IconButton color="inherit" href="http://prioritygroup.com.ar" target="_blank"><InstagramIcon /></IconButton>
+              <IconButton color="inherit" href="https://www.instagram.com/prioritygroup?igsh=MW05b2xwanRuY3Y2eA==" target="_blank"><InstagramIcon /></IconButton>
             </Stack>
           </Grid>
         </Grid>

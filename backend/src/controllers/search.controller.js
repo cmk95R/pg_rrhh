@@ -1,4 +1,5 @@
-import Search, { AREAS, ESTADOS } from "../models/Search.js";
+import Search, { ESTADOS } from "../models/Search.js";
+import Area from "../models/area.js";
 
 // GET /admin/searches
 export const listAdminSearches = async (req, res, next) => {
@@ -11,7 +12,7 @@ export const listAdminSearches = async (req, res, next) => {
       const rx = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       filter.$or = [{ titulo: rx }, { descripcion: rx }, { ubicacion: rx }];
     }
-    if (area && AREAS.includes(area)) filter.area = area;
+    if (area) filter.area = area;
     if (estado && ESTADOS.includes(estado)) filter.estado = estado;
 
     const items = await Search.find(filter).sort({ updatedAt: -1 }).lean();
@@ -35,6 +36,12 @@ export const createSearch = async (req, res, next) => {
       return res.status(400).json({ message: "Faltan campos requeridos (título y área)." });
     }
 
+    // Validar que el área exista en la base de datos
+    const areaExiste = await Area.findOne({ nombre: payload.area });
+    if (!areaExiste) {
+      return res.status(400).json({ message: "El área seleccionada no existe." });
+    }
+
     const search = await Search.create(payload);
     res.status(201).json({ search });
   } catch (e) { next(e); }
@@ -48,6 +55,14 @@ export const updateSearch = async (req, res, next) => {
     for (const k of allowed) {
       if (req.body[k] !== undefined) {
         update[k] = typeof req.body[k] === "string" ? req.body[k].trim() : req.body[k];
+      }
+    }
+
+    // Si se actualiza el área, validar que exista
+    if (update.area) {
+      const areaExiste = await Area.findOne({ nombre: update.area });
+      if (!areaExiste) {
+        return res.status(400).json({ message: "El área seleccionada no existe." });
       }
     }
 
@@ -73,7 +88,7 @@ export const listPublicSearches = async (req, res, next) => {
     filter.estado = estadoValido ? estado : "Activa";
 
     // Área opcional
-    if (typeof area === "string" && AREAS.includes(area)) {
+    if (typeof area === "string" && area.trim()) {
       filter.area = area;
     }
 

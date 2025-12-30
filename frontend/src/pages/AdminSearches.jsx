@@ -3,12 +3,14 @@ import * as React from "react";
 import {
   Container, Paper, Stack, Typography, Button, TextField, MenuItem,
   Snackbar, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  Divider, FormControl, InputLabel, Select, Chip
+  Divider, FormControl, InputLabel, Select, Chip, List, ListItem, ListItemText, IconButton
 } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
 import { DataGrid } from "@mui/x-data-grid";
 import { listSearchesApi, createSearchApi, updateSearchApi, deleteSearchApi } from "../api/searches";
+import { listAreasApi, createAreaApi, deleteAreaApi } from "../api/areas";
 
-const AREAS = ["Administracion", "Recursos Humanos", "Sistemas", "Pasantia"];
 const ESTADOS = ["Activa", "Pausada", "Cerrada"];
 
 const STATUS_COLORS = { Activa: "success", Pausada: "warning", Cerrada: "default" };
@@ -17,8 +19,74 @@ const CHIP_H = 28;
 
 const emptyForm = { titulo: "", area: "", estado: "Activa", ubicacion: "", descripcion: "" };
 
+// --- Componente Modal para Gestionar Áreas ---
+function AreasManagerDialog({ open, onClose, areas, onUpdate }) {
+  const [newArea, setNewArea] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  const handleAdd = async () => {
+    if (!newArea.trim()) return;
+    setLoading(true);
+    try {
+      await createAreaApi({ nombre: newArea });
+      setNewArea("");
+      onUpdate(); // Recargar lista
+    } catch (e) {
+      alert(e.response?.data?.message || "Error al crear área");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("¿Eliminar esta área?")) return;
+    try {
+      await deleteAreaApi(id);
+      onUpdate();
+    } catch (e) {
+      alert("Error al eliminar área");
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle>Gestionar Áreas</DialogTitle>
+      <DialogContent dividers>
+        <Stack direction="row" spacing={1} mb={2} mt={1}>
+          <TextField
+            size="small"
+            label="Nueva área"
+            value={newArea}
+            onChange={(e) => setNewArea(e.target.value)}
+            fullWidth
+          />
+          <Button variant="contained" onClick={handleAdd} disabled={loading}>
+            <AddIcon />
+          </Button>
+        </Stack>
+        <List dense sx={{ maxHeight: 300, overflow: "auto" }}>
+          {areas.map((a) => (
+            <ListItem key={a._id} divider secondaryAction={
+              <IconButton edge="end" color="error" onClick={() => handleDelete(a._id)}>
+                <DeleteIcon />
+              </IconButton>
+            }>
+              <ListItemText primary={a.nombre} />
+            </ListItem>
+          ))}
+          {areas.length === 0 && <Typography variant="body2" align="center" sx={{ mt: 2 }}>No hay áreas creadas</Typography>}
+        </List>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cerrar</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export default function AdminSearches() {
   const [rows, setRows] = React.useState([]);
+  const [areas, setAreas] = React.useState([]); // Estado para áreas dinámicas
   const [loading, setLoading] = React.useState(true);
   const [snack, setSnack] = React.useState({ open: false, severity: "success", msg: "" });
 
@@ -29,9 +97,20 @@ export default function AdminSearches() {
 
   // modal
   const [openDlg, setOpenDlg] = React.useState(false);
+  const [openAreasDlg, setOpenAreasDlg] = React.useState(false); // Modal de áreas
   const [saving, setSaving] = React.useState(false);
   const [form, setForm] = React.useState(emptyForm);
   const [editingId, setEditingId] = React.useState(null);
+
+  // Cargar áreas
+  const fetchAreas = React.useCallback(async () => {
+    try {
+      const { data } = await listAreasApi();
+      setAreas(data.areas || []);
+    } catch (e) {
+      console.error("Error cargando áreas", e);
+    }
+  }, []);
 
   const fetchData = React.useCallback(async () => {
     setLoading(true);
@@ -55,7 +134,10 @@ export default function AdminSearches() {
     }
   }, []);
 
-  React.useEffect(() => { fetchData(); }, [fetchData]);
+  React.useEffect(() => { 
+    fetchData(); 
+    fetchAreas(); 
+  }, [fetchData, fetchAreas]);
 
   const filtered = rows.filter((r) => {
     if (estadoTab !== "Todas" && r.estado !== estadoTab) return false;
@@ -247,8 +329,8 @@ export default function AdminSearches() {
             onChange={(e) => setAreaFilter(e.target.value)}
           >
             <MenuItem value="Todas">Todas las áreas</MenuItem>
-            {AREAS.map((area) => (
-              <MenuItem key={area} value={area}>{area}</MenuItem>
+            {areas.map((a) => (
+              <MenuItem key={a._id} value={a.nombre}>{a.nombre}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -267,6 +349,7 @@ export default function AdminSearches() {
           ))}
         </Stack>
 
+        <Button variant="outlined" onClick={() => setOpenAreasDlg(true)} sx={{ lineHeight: 'normal' }}>Gestionar Áreas</Button>
         <Button variant="contained" onClick={openCreate} sx={{ lineHeight: 'normal' }} fontsize="small">Agregar búsqueda</Button>
       </Stack>
 
@@ -334,7 +417,9 @@ export default function AdminSearches() {
               onChange={(e) => setForm({ ...form, area: e.target.value })}
               fullWidth
             >
-              {AREAS.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+              {areas.map((a) => (
+                <MenuItem key={a._id} value={a.nombre}>{a.nombre}</MenuItem>
+              ))}
             </TextField>
             <TextField
               select
@@ -370,6 +455,14 @@ export default function AdminSearches() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Modal de Gestión de Áreas */}
+      <AreasManagerDialog 
+        open={openAreasDlg} 
+        onClose={() => setOpenAreasDlg(false)} 
+        areas={areas} 
+        onUpdate={fetchAreas} 
+      />
 
       <Snackbar
         open={snack.open}
