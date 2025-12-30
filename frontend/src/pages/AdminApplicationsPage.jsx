@@ -27,6 +27,32 @@ const STATE_COLORS = {
 const CHIP_WIDTH = 140;
 const CHIP_HEIGHT = 28;
 
+// Helper para obtener datos del postulante
+function getApplicant(row) {
+  let cv = row?.cvSnapshot || {};
+
+  // Normalización: a veces el snapshot guarda los datos dentro de una propiedad 'cv' o 'data'
+  if (cv.cv) cv = cv.cv;
+  else if (cv.data) cv = cv.data;
+
+  // Buscamos en 'applicant', 'user' o 'candidate' para mayor cobertura
+  const user = row?.applicant || row?.user || row?.candidate || {};
+
+  // Extraer nivel académico de la lista de educación si existe
+  const educacion = cv.educacion || user.educacion || [];
+  const nivelDesdeEducacion = educacion.length > 0 ? educacion[0].nivelAcademico : null;
+
+  return {
+    nombre: cv.nombre || user.nombre || user.firstName || user.firstname || user.name || "",
+    apellido: cv.apellido || user.apellido || user.lastName || user.lastname || "",
+    email: cv.email || user.email || user.mail || "",
+    telefono: cv.telefono || user.telefono || user.phone || "",
+    linkedin: cv.linkedin || user.linkedin || "",
+    areaInteres: cv.areaInteres || cv.area || user.areaInteres || user.area || row?.areaInteres || row?.search?.area || "",
+    nivelAcademico: nivelDesdeEducacion || cv.nivelAcademico || cv.nivelEducacion || cv.education || cv.academicLevel || user.nivelAcademico || user.academicLevel || user.education || row?.nivelAcademico || "",
+  };
+}
+
 /* ================== Filtros UI ================== */
 function ApplicationsFilters({ value, onChange }) {
   const handle = (k, v) => onChange({ ...value, [k]: v });
@@ -92,11 +118,13 @@ function ApplicationsTable({ rows, onViewDetail, onChangeState }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const app = getApplicant(row);
+            return (
             <TableRow key={row._id} hover>
               <TableCell>{new Date(row.createdAt).toLocaleString()}</TableCell>
-              <TableCell>{row.cvSnapshot?.nombre} {row.cvSnapshot?.apellido}</TableCell>
-              <TableCell>{row.cvSnapshot?.email}</TableCell>
+              <TableCell>{app.nombre} {app.apellido}</TableCell>
+              <TableCell>{app.email}</TableCell>
               <TableCell>
                 <div style={{ fontWeight: 600 }}>{row.search?.titulo || row.search?._id}</div>
                 <div style={{ fontSize: 12, opacity: 0.7 }}>
@@ -138,7 +166,8 @@ function ApplicationsTable({ rows, onViewDetail, onChangeState }) {
                 </Stack>
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
 
@@ -154,7 +183,7 @@ function ApplicationsTable({ rows, onViewDetail, onChangeState }) {
 /* ================== Modal Detalle ================== */
 function ApplicationDetailDialog({ open, onClose, application }) {
   if (!application) return null;
-  const cv = application?.cvSnapshot || {};
+  const cv = getApplicant(application);
   const search = application?.search || {};
   // 1. Verificamos si existe un ID de archivo en el proveedor (OneDrive)
   const cvProviderId = application?.cvSnapshot?.cvFile?.providerId;
@@ -204,8 +233,9 @@ function ApplicationDetailDialog({ open, onClose, application }) {
               <Typography variant="body2" color="text.secondary">{cv.email}</Typography>
               <Typography variant="body2" color="text.secondary">{cv.telefono}</Typography>
               <Typography variant="body2" color="text.secondary">{cv.linkedin}</Typography>
+              <br />
               <Typography variant="body2">
-                Área: {cv.areaInteres} · Nivel: {cv.nivelAcademico}
+                Área: {cv.areaInteres}
               </Typography>
             </Stack>
           </div>
@@ -304,9 +334,10 @@ export default function AdminApplicationsPage() {
 
       // q: nombre/apellido/email/mensaje
       if (q) {
-        const nombre = (row.cvSnapshot?.nombre || "").toLowerCase();
-        const apellido = (row.cvSnapshot?.apellido || "").toLowerCase();
-        const email = (row.cvSnapshot?.email || "").toLowerCase();
+        const app = getApplicant(row);
+        const nombre = (app.nombre || "").toLowerCase();
+        const apellido = (app.apellido || "").toLowerCase();
+        const email = (app.email || "").toLowerCase();
         const msg = (row.message || "").toLowerCase();
         if (
           !nombre.includes(q) &&
