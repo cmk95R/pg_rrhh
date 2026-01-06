@@ -85,11 +85,19 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== "open" 
     boxSizing: "border-box",
     ...(open && {
       ...openedMixin(theme),
-      "& .MuiDrawer-paper": openedMixin(theme),
+      "& .MuiDrawer-paper": {
+        ...openedMixin(theme),
+        display: "flex",
+        flexDirection: "column",
+      },
     }),
     ...(!open && {
       ...closedMixin(theme),
-      "& .MuiDrawer-paper": closedMixin(theme),
+      "& .MuiDrawer-paper": {
+        ...closedMixin(theme),
+        display: "flex",
+        flexDirection: "column",
+      },
     }),
   })
 );
@@ -328,6 +336,54 @@ export default function DashboardLayout() {
             </motion.div>
           ))}
         </List>
+        <Box
+          sx={{
+            mt: "auto",
+            p: open ? 2 : 1,
+            borderTop: "1px solid",
+            borderColor: "divider",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            transition: "all 0.3s ease",
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontSize: open ? "0.6rem" : "0.45rem",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: open ? "1px" : "0px",
+              mb: 1,
+              opacity: 0.8,
+            }}
+          >
+            Powered by
+          </Typography>
+          <a
+            href="https://asytec.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: "block" }}
+          >
+            <Box
+              component="img"
+              src="/logoasy.png"
+              alt="Powered Logo"
+              sx={{
+                width: open ? "35px" : "25px",
+                height: "auto",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                filter: "grayscale(100%) opacity(0.7)",
+                "&:hover": {
+                  filter: "grayscale(0%) opacity(1)",
+                },
+              }}
+            />
+          </a>
+        </Box>
       </Drawer>
       {/* === FIN MODIFICACIÓN CLAVE PARA EL HOVER DEL DRAWER === */}
 
