@@ -58,3 +58,15 @@ export const adminSetUserRoleApi = (userId, rol) => api.patch(`/admin/users/${us
  * @param {string} userId - El ID del usuario.
  */
 export const getUserCvDownloadUrlApi = (userId) => api.get(`/admin/users/${userId}/cv/download`);
+
+/**
+ * 🔑 ADMIN: Reset de password a usuario 
+ * Calls POST /admin/users/:id/reset-password
+ */
+export const resetUserPasswordApi = (userId, newPassword) => api.post(`/admin/users/${userId}/reset-password`, { newPassword });
+
+/**
+ * 🔑 ADMIN: Actualizar datos básicos de un usuario.
+ * Calls PATCH /admin/users/:id
+ */
+export const adminUpdateUserApi = (userId, data) => api.patch(`/admin/users/${userId}`, data);

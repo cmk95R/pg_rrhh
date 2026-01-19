@@ -69,7 +69,7 @@ async function normalizePayload(body, file, user) {
     const uploadResult = await uploadFileToGoogleDrive(file.buffer, fileName);
 
     $set.cvFile = {
-      fileName: fileName,
+      filename: fileName,
       providerId: uploadResult.id, // Actualiza el ID (puede cambiar)
       url: uploadResult.webViewLink,    // Actualiza la URL
       mimetype: file.mimetype,
@@ -182,7 +182,7 @@ export const listAllCVs = async (req, res, next) => {
 export const getCV = async (req, res, next) => {
   try {
     const cv = await Cv.findById(req.params.id)
-      .populate("user", "publicId email nombre apellido")
+      .populate("user", "publicId email nombre apellido direccion telefono")
       .lean();
     if (!cv) return res.status(404).json({ message: "CV no encontrado" });
     res.json({ cv });

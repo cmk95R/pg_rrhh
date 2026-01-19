@@ -25,7 +25,8 @@ import {
   InputAdornment,
   Link as MUILink,
   Snackbar,
-  Alert
+  Alert,
+  Paper
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import WorkIcon from "@mui/icons-material/Work";
@@ -39,6 +40,8 @@ import { Link as RouterLink } from "react-router-dom";
 import { myApplicationsApi, withdrawApplicationApi } from "../api/applications";
 import { AuthContext } from "../context/AuthContext"; // 1. Importar el AuthContext
 import { profileApi } from "../api/auth"; // API para obtener el perfil del usuario
+import Swal from 'sweetalert2';
+import SearchDetailDialog from "../components/ModalSearches";
 
 const statusMap = {
   accepted: { label: "Aprobada", color: "success" },
@@ -63,16 +66,20 @@ function formatDate(iso) {
 }
 
 function normalize(app) {
-  const s = app?.search && typeof app.search === "object" ? app.search : {};
-  const id = (typeof app?.search === "string" && app.search) || s?._id || null;
+  let s = app?.search;
+  if (Array.isArray(s)) s = s[0];
+  if (!s || typeof s !== "object") s = {};
+
+  const id = s._id || s.id || (typeof app?.search === "string" ? app.search : null);
   const title = s?.titulo || "Búsqueda";
   const company = s?.area || "";
   const location = s?.ubicacion || null;
   const createdAt = app?.createdAt || null;
   const state = (app?.state || "pending").toString().toLowerCase();
   const logoUrl = s?.logo || null;
+  const descripcion = s?.descripcion || s?.description || "";
 
-  return { id, title, company, location, createdAt, state, logoUrl, raw: app };
+  return { id, title, company, location, createdAt, state, logoUrl, descripcion, raw: app, searchObj: s };
 }
 
 export default function MyApplications() {
@@ -80,12 +87,13 @@ export default function MyApplications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [statusOptions, setStatusOptions] = useState([]);
+  const [statusOptions, setStatusOptions] = useState(["ALL"]);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1); 
   const [snack, setSnack] = useState({ open: false, severity: "success", msg: "" });
   const [user, setUser] = useState(null);
   const PER_PAGE = 12;
+  const [selectedSearch, setSelectedSearch] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -138,40 +146,77 @@ export default function MyApplications() {
   }, [statusFilter, query]);
 
   const handleRetirarPostulacion = async (applicationId, applicationTitle) => {
-    if (window.confirm(`¿Estás seguro de que quieres retirar tu postulación a "${applicationTitle}"?`)) {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `Vas a retirar tu postulación a "${applicationTitle}".`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, retirar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
       try {
         await withdrawApplicationApi(applicationId);
-        setSnack({ open: true, severity: "success", msg: "Postulación retirada con éxito." });
+        Swal.fire('¡Retirada!', 'Tu postulación ha sido retirada.', 'success');
         fetchData();
       } catch (e) {
         const msg = e?.response?.data?.message || "No se pudo retirar la postulación.";
-        setSnack({ open: true, severity: "error", msg });
+        Swal.fire('Error', msg, 'error');
       }
     }
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Título y refresco */}
-      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2}>
-        <Box>
-          <Typography variant="h4" fontWeight={700}>Mis postulaciones</Typography>
-          <Typography variant="body2" color="text.secondary">Acá vas a ver todas las búsquedas a las que te postulaste.</Typography>
-        </Box>
-        <Tooltip title="Actualizar">
-          <IconButton onClick={fetchData} disabled={loading}>
-            <RefreshIcon />
-          </IconButton>
-        </Tooltip>
-      </Stack>
+    <Container maxWidth="lg" sx={{ py: 5, minHeight: '80vh' }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 5 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <div>
+            <Typography variant="h4" fontWeight={500} color="text.primary" gutterBottom>
+              Mis Postulaciones
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Gestioná el estado de tus solicitudes y mantenete al tanto de las novedades.
+            </Typography>
+          </div>
+          <Tooltip title="Actualizar lista">
+            <span>
+              <IconButton 
+                onClick={fetchData} 
+                disabled={loading}
+                sx={{ 
+                  bgcolor: 'background.paper', 
+                  boxShadow: 1,
+                  '&:hover': { bgcolor: 'background.paper', boxShadow: 3 }
+                }}
+              >
+                <RefreshIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+      </Box>
 
-      {/* Filtros */}
-      <Box mt={3}>
+      {/* Filters Section */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 3, 
+          mb: 4, 
+          borderRadius: 3, 
+          border: '1px solid', 
+          borderColor: 'divider'
+        }}
+      >
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={5}>
+          <Grid item xs={12} md={6}>
             <TextField
-              fullWidth
-              label="Buscar por título o empresa"
+              width="290px"
+              
+              placeholder="Buscar por puesto..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               InputProps={{
@@ -179,56 +224,67 @@ export default function MyApplications() {
                   <InputAdornment position="start"><SearchIcon /></InputAdornment>
                 ),
               }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <FormControl fullWidth>
-              <InputLabel id="status-label">Estado</InputLabel>
-              <Select
-                labelId="status-label"
-                label="Estado"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                {statusOptions.map(opt => (
-                  <MenuItem value={opt} key={opt}>
-                    {opt === "ALL" ? "Todas" : (statusMap[opt]?.label || opt)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          <Grid item xs={12} md={4}>
+            
           </Grid>
         </Grid>
-      </Box>
+      </Paper>
 
-      {/* Contenido principal */}
-      <Box mt={3}>
+      {/* Content */}
+      <Box>
         {error && (
-          <Card sx={{ mb: 3 }}><CardContent><Typography color="error">{error}</Typography></CardContent></Card>
+          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>
         )}
 
         {loading && !items.length && (
-          <Grid container spacing={2} mt={0.5}>
+          <Grid container spacing={3}>
             {Array.from({ length: 6 }).map((_, i) => (
               <Grid item xs={12} md={6} lg={4} key={`sk-${i}`}>
-                <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 3 }} />
+                <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 4 }} />
               </Grid>
             ))}
           </Grid>
         )}
 
         {!loading && !error && filtered.length === 0 && (
-          <Card sx={{ textAlign: "center", py: 6 }}>
-            <CardContent>
-              <Typography variant="h6" fontWeight={700} gutterBottom>Aún no tenés postulaciones</Typography>
-              <Button component={RouterLink} to="/searches" variant="contained" startIcon={<WorkIcon />}>Explorar búsquedas</Button>
-            </CardContent>
-          </Card>
+          <Box 
+            sx={{ 
+              textAlign: "center", 
+              py: 8, 
+              px: 2,
+              bgcolor: 'background.paper', 
+              borderRadius: 4,
+              border: '1px dashed',
+              borderColor: 'divider'
+            }}
+          >
+            <WorkIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+            <Typography variant="h6" fontWeight={600} color="text.primary" gutterBottom>
+              No encontramos postulaciones
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 400, mx: 'auto' }}>
+              {query || statusFilter !== "ALL" 
+                ? "Intenta ajustar los filtros de búsqueda para encontrar lo que buscas." 
+                : "Aún no te has postulado a ninguna oferta. ¡Explora las oportunidades disponibles!"}
+            </Typography>
+            <Button 
+              component={RouterLink} 
+              to="/searches" 
+              variant="contained" 
+              size="large"
+              sx={{ borderRadius: 2, textTransform: 'none', px: 4 }}
+            >
+              Ver ofertas disponibles
+            </Button>
+          </Box>
         )}
 
-        <Grid container spacing={2} mt={0.5}>
+        <Grid container spacing={3}>
           {paginated.map((item, idx) => {
-            const { title, company, location, createdAt, state } = item;
+            const { title, company, location, createdAt, state, logoUrl, descripcion, searchObj } = item;
             const statusCfg = statusMap[state] || statusMap.pending;
 
             const recruiterEmail = "rrhh@asytec.ar";
@@ -238,53 +294,114 @@ export default function MyApplications() {
 
             return (
               <Grid item xs={12} md={6} lg={4} key={`${item.raw?._id}-${idx}`}>
-                <Card sx={{ height: "100%", display: "flex", flexDirection: "column", borderRadius: 3 }}>
-                  <CardHeader
-                    avatar={<Avatar><WorkIcon fontSize="small" /></Avatar>}
-                    title={<Typography variant="h6" fontWeight={700}>{title}</Typography>}
-                    subheader={
-                      <Stack direction="row" spacing={1} alignItems="center" color="text.secondary" mt={0.5}>
-                        <Typography variant="body2">{company || "—"}</Typography>
-                        {location && (<><span>•</span><Typography variant="body2">{location}</Typography></>)}
-                      </Stack>
+                <Card 
+                  elevation={0}
+                  sx={{ 
+                    height: "100%", 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    borderRadius: 4,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 12px 24px -10px rgba(0, 0, 0, 0.1)',
+                      borderColor: 'primary.main'
                     }
+                  }}
+                >
+                  <CardHeader
+                    avatar={
+                      <Avatar 
+                        src={logoUrl} 
+                        sx={{ 
+                          bgcolor: 'primary.light', 
+                          color: 'primary.main',
+                          width: 48, 
+                          height: 48 
+                        }}
+                      >
+                        {!logoUrl && <WorkIcon />}
+                      </Avatar>
+                    }
+                   
+                    title={
+                      <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2} sx={{ mb: 0.5 }}>
+                        {title}
+                      </Typography>
+                    }
+                    subheader={
+                      <Typography variant="body2" color="text.secondary">
+                        {company || "Empresa confidencial"}
+                      </Typography>
+                    }
+                    sx={{ pb: 1 }}
                   />
-                  <CardContent>
-                    <Chip size="small" color={statusCfg.color} label={statusCfg.label} />
-                    <Stack direction="row" spacing={1.5} alignItems="center" color="text.secondary" mt={2}>
-                      <CalendarTodayIcon fontSize="small" />
-                      <Typography variant="body2">Postulado: <strong>{formatDate(createdAt)}</strong></Typography>
+                  
+                  <CardContent sx={{ pt: 1, flexGrow: 1 }}>
+                     
+                      
+                    <Stack spacing={1.5}>
+                      <Chip 
+                        label={statusCfg.label} 
+                        size="small" 
+                        width="30px" 
+                        color={statusCfg.color}
+                        sx={{ fontWeight: 600, borderRadius: 1.5 }} 
+                      />
+                      {location && (
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <LocationOnIcon fontSize="small" color="action" sx={{ opacity: 0.7 }} />
+                          <Typography variant="body2" color="text.secondary">{location}</Typography>
+                        </Stack>
+                      )}
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <CalendarTodayIcon fontSize="small" color="action" sx={{ opacity: 0.7 }} />
+                        <Typography variant="body2" color="text.secondary">
+                          Aplicado el {formatDate(createdAt)}
+                        </Typography>
+                      </Stack>
+                      
                     </Stack>
                   </CardContent>
-                  <Box flexGrow={1} />
-                  <Divider />
-                  <CardActions sx={{ justifyContent: "space-between" }}>
+
+                  <Divider sx={{ borderStyle: 'dashed' }} />
+
+                  <CardActions sx={{ p: 2, justifyContent: "space-between" }}>
+                    <Button
+                      size="small"
+                      startIcon={<MailOutlineIcon />}
+                      href={mailtoLink}
+                      target="_blank"
+                      sx={{ textTransform: 'none', color: 'text.secondary' }}
+                    >
+                      Contactar
+                    </Button>
+                    
                     <Stack direction="row" spacing={1}>
                       {state !== 'withdrawn' && state !== 'rejected' && state !== 'hired' && (
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          onClick={() => handleRetirarPostulacion(item.raw?._id, title)}
-                        >
-                          Retirar
-                        </Button>
+                        <Tooltip title="Retirar postulación">
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            onClick={() => handleRetirarPostulacion(item.raw?._id, title)}
+                            sx={{ borderRadius: 2, minWidth: 0, px: 1.5 }}
+                          >
+                            Retirar
+                          </Button>
+                        </Tooltip>
                       )}
-                      <Button
-                        variant="outlined"
-                        color="primary"
+                      <Button 
+                        variant="contained" 
                         size="small"
-                        startIcon={<MailOutlineIcon />}
-                        component="a"
-                        href={mailtoLink}
-                        target="_blank"
+                        onClick={() => setSelectedSearch({ ...searchObj, descripcion })}
+                        sx={{ borderRadius: 2, textTransform: 'none', boxShadow: 'none' }}
                       >
-                        Contactar
+                        Ver detalle
                       </Button>
                     </Stack>
-                    <MUILink component={RouterLink} to={`/searches/${item.id}`} underline="hover" sx={{ fontSize: 14 }}>
-                      Ver detalle
-                    </MUILink>
                   </CardActions>
                 </Card>
               </Grid>
@@ -293,17 +410,24 @@ export default function MyApplications() {
         </Grid>
 
         {filtered.length > PER_PAGE && (
-          <Stack alignItems="center" mt={4}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
             <Pagination
               count={pageCount}
               page={page}
               onChange={(_, p) => setPage(p)}
               shape="rounded"
               color="primary"
+              size="large"
             />
-          </Stack>
+          </Box>
         )}
       </Box>
+
+      <SearchDetailDialog
+        open={!!selectedSearch}
+        onClose={() => setSelectedSearch(null)}
+        application={{ search: selectedSearch }}
+      />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack(s => ({ ...s, open: false }))}>
         <Alert severity={snack.severity} variant="filled" onClose={() => setSnack(s => ({ ...s, open: false }))} sx={{ width: '100%' }}>

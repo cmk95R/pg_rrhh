@@ -14,7 +14,7 @@ import MyApplications from "./pages/myapplicaction";
 import AdminApplicationsPage from './pages/AdminApplicationsPage'; 
 import LoginSso from "./pages/LoginSso";
 import GoogleAuthCallback from './pages/GoogleAuthCallback';
-
+import AdminArea from './pages/AdminAreaPage';
 
 <Route path="/admin/users" element={<AdminUsersGrid />} />
 function App() {
@@ -36,7 +36,7 @@ function App() {
         <Route path="/applications/me" element={<MyApplications />} />
         <Route path="/admin/applications" element={< AdminApplicationsPage />} />
         <Route path="/login/sso" element={<LoginSso />} />
-        
+        <Route path="/admin/areas" element={<AdminArea />} />
       </Route>
 
       {/* Sin layout (login aparte) */}

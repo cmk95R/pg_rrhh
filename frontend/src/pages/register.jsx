@@ -15,9 +15,14 @@ import {
   Paper,
   Box,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import SocialLogin from "../components/socialLogin";
 import DireccionAR from "../components/DireccionAR";
 
@@ -39,6 +44,7 @@ export default function RegisterForm() {
   const [showPass, setShowPass] = useState(false);
   // --- INICIO: VALIDACIÓN ---
   const [errors, setErrors] = useState({});
+  const [openSuccessModal, setOpenSuccessModal] = useState(false);
   // --- FIN: VALIDACIÓN ---
 
   // --- INICIO: VALIDACIÓN EN FRONTEND ---
@@ -112,8 +118,7 @@ export default function RegisterForm() {
         direccion: form.direccion,
       });
       // Como el registro ya no inicia sesión, mostramos un mensaje y redirigimos a login
-      alert(data.message || "Registro exitoso. Ya puedes iniciar sesión.");
-      navigate("/login");
+      setOpenSuccessModal(true);
     } catch (err) {
       // --- INICIO: VALIDACIÓN ---
       const apiErrors = err?.response?.data;
@@ -131,6 +136,11 @@ export default function RegisterForm() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseSuccessModal = () => {
+    setOpenSuccessModal(false);
+    navigate("/login");
   };
 
   return (
@@ -253,6 +263,41 @@ export default function RegisterForm() {
           ¿Ya tenés una cuenta? <a href="/login">Iniciá sesión</a>
         </Typography>
       </Paper>
+
+      {/* Modal de Registro Exitoso */}
+      <Dialog
+        open={openSuccessModal}
+        onClose={handleCloseSuccessModal}
+        maxWidth="xs"
+        fullWidth
+      >
+        <Box sx={{ textAlign: 'center', p: 4 }}>
+          <CheckCircleOutlineIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
+          <DialogTitle sx={{ p: 0, mb: 1, fontWeight: 'bold' }}>
+            ¡Registro Exitoso!
+          </DialogTitle>
+          <DialogContent sx={{ p: 0, mb: 3 }}>
+            <Typography variant="body1" color="text.secondary">
+              Tu cuenta ha sido creada correctamente.
+              <br />
+              Ya puedes iniciar sesión.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ p: 0, justifyContent: 'center' }}>
+            <Button 
+              onClick={handleCloseSuccessModal} 
+              variant="contained" 
+              fullWidth
+              sx={{ 
+                backgroundColor: '#0A5C8D',
+                '&:hover': { backgroundColor: '#084a70' }
+              }}
+            >
+              Iniciar Sesión
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Container>
   );
 }

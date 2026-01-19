@@ -26,6 +26,7 @@ import { listPublicSearchesApi } from "../api/searches"; // <-- usa api/client.j
 import { applyToSearchApi } from "../api/applications"; // si aún no existe, créalo
 import { myApplicationsApi } from "../api/applications";
 import SearchDetailDialog from "../components/ModalSearches"; // 1. Importar el modal
+import Swal from 'sweetalert2';
 const STATUS_COLORS = {
   Activa: "success",
   Pausada: "warning",
@@ -155,34 +156,7 @@ export default function PublicSearches() {
         />
         <Typography variant="body2">Búsquedas Activas</Typography>
         <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-        {/* <Button
-          variant={filterType === "Todas" ? "contained" : "outlined"}
-          onClick={() => setFilterType("Todas")}
-          sx={{ textTransform: "none" }}
-          disabled={showActive} // si está en "Activas", ignora este filtro
-        >
-          Todas las Búsquedas
-        </Button>
-        <Button
-          variant={filterType === "Busquedas Cerradas" ? "contained" : "outlined"}
-          onClick={() => setFilterType("Busquedas Cerradas")}
-          sx={{ textTransform: "none" }}
-          disabled={showActive}
-        >
-          Búsquedas Cerradas
-        </Button>
-        <Button
-          variant={filterType === "En Pausa" ? "contained" : "outlined"}
-          onClick={() => setFilterType("En Pausa")}
-          sx={{ textTransform: "none" }}
-          disabled={showActive}
-        >
-          En Pausa
-        </Button> */}
-
-        {/* <Button variant="text" onClick={fetchData} sx={{ ml: "auto" }}>
-          Actualizar
-        </Button> */}
+      
       </Stack>
 
       {/* Lista */}
@@ -245,20 +219,50 @@ export default function PublicSearches() {
                               disabled={disabled}
                               onClick={async () => {
                                 if (!user) return navigate("/login");
-                                try {
-                                  setApplyingId(item.id);
-                                  await applyToSearchApi(item.id, { message: "" });
-                                  setAppliedIds(prev => {
-                                    const next = new Set(prev);
-                                    next.add(item.id);
-                                    return next;
-                                  });
-                                  setSnack({ open: true, severity: "success", msg: "Postulación enviada ✅" });
-                                } catch (e) {
-                                  const msg = e?.response?.data?.message || "No se pudo postular";
-                                  setSnack({ open: true, severity: "error", msg });
-                                } finally {
-                                  setApplyingId(null);
+                                
+                                const result = await Swal.fire({
+                                  title: '¿Confirmar postulación?',
+                                  text: `Estás a punto de postularte a "${item.titulo}"`,
+                                  icon: 'question',
+                                  showCancelButton: true,
+                                  confirmButtonText: 'Sí, postularme',
+                                  cancelButtonText: 'Cancelar',
+                                  confirmButtonColor: '#3085d6',
+                                  cancelButtonColor: '#d33',
+                                });
+
+                                if (result.isConfirmed) {
+                                  try {
+                                    setApplyingId(item.id);
+                                    await applyToSearchApi(item.id, { message: "" });
+                                    setAppliedIds(prev => {
+                                      const next = new Set(prev);
+                                      next.add(item.id);
+                                      return next;
+                                    });
+                                    Swal.fire('¡Enviado!', 'Te has postulado correctamente.', 'success');
+                                  } catch (e) {
+                                    const msg = e?.response?.data?.message || "No se pudo realizar la postulación.";
+                                    
+                                    // Detectamos si el error es por falta de CV o Perfil
+                                    if (msg.includes("perfil") || msg.includes("CV") || msg.includes("adjuntar")) {
+                                      Swal.fire({
+                                        title: 'Perfil incompleto',
+                                        text: "Para postularte, necesitas completar tu perfil y adjuntar tu CV.",
+                                        icon: 'warning',
+                                        showCancelButton: true,
+                                        confirmButtonText: 'Ir a mi perfil',
+                                        cancelButtonText: 'Cancelar',
+                                        confirmButtonColor: '#0A5C8D'
+                                      }).then((res) => {
+                                        if (res.isConfirmed) navigate("/profile");
+                                      });
+                                    } else {
+                                      Swal.fire('Error', msg, 'error');
+                                    }
+                                  } finally {
+                                    setApplyingId(null);
+                                  }
                                 }
                               }}
                             >

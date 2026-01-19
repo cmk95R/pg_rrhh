@@ -1,7 +1,7 @@
 // src/pages/admin/AdminApplicationsPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import {
-  Box, Container, Stack, Paper, Typography, LinearProgress, Divider, Pagination,
+  Box, Container, Stack, Paper, Typography, Grid, LinearProgress, Divider, Pagination,
   TextField, FormControl, InputLabel, Select, MenuItem,
   Table, TableHead, TableRow, TableCell, TableBody,
   IconButton, Tooltip, Chip, Menu, Dialog, DialogTitle, DialogContent, DialogActions, Button,
@@ -10,11 +10,21 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DownloadIcon from "@mui/icons-material/Download";
 import CircularProgress from "@mui/material/CircularProgress";
-import { listApplicationsApi, updateApplicationApi, getApplicationCvDownloadUrlApi } from "../api/applications";
+import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
+import ContactMailIcon from "@mui/icons-material/ContactMail";
+import SchoolIcon from "@mui/icons-material/School";
+import WorkIcon from "@mui/icons-material/Work";
+import LocationOnIcon from "@mui/icons-material/LocationOn";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import ApplicationDetailDialog from "../components/admin/ApplicationDetailDialog";  
+import Avatar from "@mui/material/Avatar";
+import { listApplicationsApi, updateApplicationApi } from "../api/applications";
+import { getCvByIdApi } from "../api/cv";
+import { blue } from "@mui/material/colors";
 
 // --- Constantes
 const APP_STATES = ["Enviada", "En revisión", "Preseleccionado", "Rechazado", "Contratado"];
-
+const colorFont = "#333"; 
 const STATE_COLORS = {
   Enviada: "default",
   "En revisión": "info",
@@ -50,6 +60,19 @@ function getApplicant(row) {
     linkedin: cv.linkedin || user.linkedin || "",
     areaInteres: cv.areaInteres || cv.area || user.areaInteres || user.area || row?.areaInteres || row?.search?.area || "",
     nivelAcademico: nivelDesdeEducacion || cv.nivelAcademico || cv.nivelEducacion || cv.education || cv.academicLevel || user.nivelAcademico || user.academicLevel || user.education || row?.nivelAcademico || "",
+    // Normalizamos arrays para asegurar que el modal los lea bien
+              experiencia: (cv.experiencia || user.experiencia || []).map(item => ({
+                ...item,
+                fechaInicio: item.desde || item.fechaInicio,
+                fechaFin: item.hasta || item.fechaFin
+              })),
+              educacion: (cv.educacion || user.educacion || []).map(item => ({
+                ...item,
+                fechaInicio: item.desde || item.fechaInicio,
+                fechaFin: item.hasta || item.fechaFin,
+                titulo: item.carrera || item.titulo
+              })),
+    sobreMi: cv.perfil || cv.sobreMi || user.perfil || user.sobreMi || "",
   };
 }
 
@@ -180,110 +203,8 @@ function ApplicationsTable({ rows, onViewDetail, onChangeState }) {
   );
 }
 
-/* ================== Modal Detalle ================== */
-function ApplicationDetailDialog({ open, onClose, application }) {
-  if (!application) return null;
-  const cv = getApplicant(application);
-  const search = application?.search || {};
-  // 1. Verificamos si existe un ID de archivo en el proveedor (OneDrive)
-  const cvProviderId = application?.cvSnapshot?.cvFile?.providerId;
-  const [isDownloading, setIsDownloading] = useState(false);
 
-  const handleDownload = async () => {
-    if (!application?._id) return;
-    setIsDownloading(true);
-    try {
-      // Llamamos a la API segura que nos devuelve la URL
-      const { data } = await getApplicationCvDownloadUrlApi(application._id);
-      if (data.downloadUrl) {
-        // Abrimos la URL en una nueva pestaña para iniciar la descarga
-        window.open(data.downloadUrl, '_blank', 'noopener,noreferrer');
-      }
-    } catch (error) {
-      console.error("Error al obtener la URL de descarga:", error);
-      alert("No se pudo obtener el enlace de descarga.");
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Detalle de Postulación</DialogTitle>
-      <DialogContent dividers>
-        <Typography variant="caption" color="text.secondary">
-          {new Date(application?.createdAt).toLocaleString()}
-        </Typography>
-
-        <Stack spacing={2} sx={{ mt: 2 }}>
-          <div>
-            <Typography variant="subtitle2">Estado</Typography>
-            <Chip
-              label={application?.state}
-              size="small"
-              color={STATE_COLORS[application?.state] || "default"}
-              sx={{ mt: 0.5 }}
-            />
-          </div>
-
-          <div>
-            <Typography variant="subtitle2">Postulante</Typography>
-            <Stack>
-              <Typography>{cv.nombre} {cv.apellido}</Typography>
-              <Typography variant="body2" color="text.secondary">{cv.email}</Typography>
-              <Typography variant="body2" color="text.secondary">{cv.telefono}</Typography>
-              <Typography variant="body2" color="text.secondary">{cv.linkedin}</Typography>
-              <br />
-              <Typography variant="body2">
-                Área: {cv.areaInteres}
-              </Typography>
-            </Stack>
-          </div>
-
-          <div>
-            <Typography variant="subtitle2">Búsqueda</Typography>
-            <Stack>
-              <Typography>{search.titulo || search._id}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {search.ubicacion} · {search.area} · {search.estado}
-              </Typography>
-            </Stack>
-          </div>
-
-          {application?.message && (
-            <div>
-              <Typography variant="subtitle2">Mensaje del postulante</Typography>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{application.message}</Typography>
-            </div>
-          )}
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} variant="outlined">Cerrar</Button>
-        {/* 2. El botón ahora usa un handler onClick */}
-        {cvProviderId ? (
-          <Button
-            variant="contained"
-            startIcon={isDownloading ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-            onClick={handleDownload}
-            disabled={isDownloading}
-          >
-            {isDownloading ? "Obteniendo..." : "Descargar CV"}
-          </Button>
-        ) : (
-          <Tooltip title="El postulante no adjuntó un archivo de CV en esta postulación.">
-            {/* El span es necesario para que el Tooltip funcione en un botón deshabilitado */}
-            <span>
-              <Button variant="contained" startIcon={<DownloadIcon />} disabled>
-                Descargar CV
-              </Button>
-            </span>
-          </Tooltip>
-        )}
-      </DialogActions>
-    </Dialog>
-  );
-}
 
 /* ================== Página ================== */
 export default function AdminApplicationsPage() {

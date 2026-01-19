@@ -3,7 +3,7 @@ import {
   Box, Stack, Button, Chip, TextField, MenuItem,Container,
   Snackbar, Alert, Paper, Typography, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select,
-  IconButton, Tooltip
+  IconButton, Tooltip, Grid, Divider, Avatar
 } from "@mui/material";
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
@@ -12,6 +12,7 @@ import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 import { DataGrid } from "@mui/x-data-grid";
 // Usamos la API que soporta paginación y filtros
 import { listUsersWithCvApi, adminSetUserRoleApi, adminSetUserStatusApi } from "../api/users";
+import UserDetailsDialog from "../components/admin/UserDetailsDialog";
 
 export default function AdminUsersGrid() {
   // Estado para manejar la paginación y datos del servidor
@@ -45,16 +46,46 @@ export default function AdminUsersGrid() {
 
       const { data } = await listUsersWithCvApi(params);
       
-      const mapped = (data?.items ?? []).map((u) => ({
-        id: u._id || u.id,
-        nombre: u.nombre ?? "",
-        apellido: u.apellido ?? "",
-        email: u.email ?? "",
-        rol: u.rol ?? "user",
-        estado: u.estado ?? 'activo',
-        createdAt: u.createdAt,
-           // El backend ya lo provee en el campo correcto
-      }));
+      
+      const mapped = (data?.items ?? []).map((u) => {
+        
+
+        // Si los datos del CV vienen anidados en un objeto 'cv', los extraemos
+        // Verificamos si es un array (común en lookups) y tomamos el primero, o si es objeto.
+        const rawCv = u.cv;
+        const cvData = Array.isArray(rawCv) ? (rawCv[0] || {}) : (rawCv || {});
+        
+        return {
+          ...u, 
+          ...cvData, // Aplanamos el objeto para tener acceso directo
+          id: u._id || u.id,
+          nombre: u.nombre ?? "",
+          apellido: u.apellido ?? "",
+          email: u.email ?? "",
+          rol: u.rol ?? "user",
+          estado: u.estado ?? 'activo',
+          createdAt: u.createdAt,
+          // Aseguramos que los campos del modal existan, buscando en raíz o en cvData
+          telefono: u.telefono || cvData.telefono || "",
+          direccion: u.direccion || cvData.direccion || "",
+          experiencia: (cvData.experiencia || cvData.experiencias || u.experiencia || []).map(item => ({
+            ...item,
+            fechaInicio: item.desde || item.fechaInicio,
+            fechaFin: item.hasta || item.fechaFin
+          })),
+          educacion: (u.educacion || u.educacion || u.educacion || []).map(item => ({
+            ...item,
+            fechaInicio: item.desde || item.fechaInicio,
+            fechaFin: item.hasta || item.fechaFin,
+            titulo: item.carrera || item.titulo
+          })),
+          sobreMi: cvData.perfil || cvData.sobreMi || u.sobreMi || u.perfil || "",
+          fechaNacimiento: u.nacimiento || u.fechaNacimiento || u.fechaNacimiento || null,
+          // Extraemos datos adicionales
+          linkedin: u.cvLinkedin || "",
+          cvFile: cvData.cvFile || null
+        };
+      });
 
       setRows(mapped);
       setRowCount(data?.total ?? 0);
@@ -192,6 +223,21 @@ export default function AdminUsersGrid() {
       },
     },
     {
+      field: "updatedAt",
+      headerName: "Modificado",
+      type: "dateTime",
+      flex: 1,
+      minWidth: 150,
+      align: "center", headerAlign: "center",
+      width: 150,
+      valueGetter: (value) => {
+        return value ? new Date(value) : null;
+      },
+      valueFormatter: (value) => {
+        return value ? value.toLocaleDateString('es-AR') : '';
+      },
+    },
+    {
       field: "actions",
       headerName: "Acciones",
       flex: 1,
@@ -304,24 +350,11 @@ export default function AdminUsersGrid() {
       </Dialog>
 
       {/* Modal para ver detalles del usuario */}
-      <Dialog open={detailsModalOpen} onClose={handleCloseDetailsModal} fullWidth maxWidth="xs">
-        <DialogTitle>Detalles de {selectedUser?.nombre}</DialogTitle>
-        <DialogContent>
-          {selectedUser && (
-            <Stack spacing={1.5} sx={{ mt: 2 }}>
-              <Typography><strong>ID:</strong> {selectedUser.id}</Typography>
-              <Typography><strong>Nombre:</strong> {selectedUser.nombre} {selectedUser.apellido}</Typography>
-              <Typography><strong>Email:</strong> {selectedUser.email}</Typography>
-              <Typography><strong>Rol:</strong> <Chip label={selectedUser.rol} size="small" color={selectedUser.rol === 'admin' ? 'secondary' : selectedUser.rol === 'rrhh' ? 'info' : 'default'} /></Typography>
-              <Typography><strong>Estado:</strong> <Chip label={selectedUser.estado} size="small" color={selectedUser.estado === 'activo' ? 'success' : 'error'} /></Typography>
-              <Typography><strong>Fecha de Creación:</strong> {new Date(selectedUser.createdAt).toLocaleDateString('es-AR')}</Typography>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDetailsModal}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
+      <UserDetailsDialog
+        open={detailsModalOpen}
+        onClose={handleCloseDetailsModal}
+        user={selectedUser}
+      />
     </Container>
   );
 }

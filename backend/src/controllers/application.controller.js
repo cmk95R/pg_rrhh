@@ -1,5 +1,6 @@
 // controllers/application.controller.js
 
+import mongoose from "mongoose";
 import Application from "../models/Application.js";
 import Search from "../models/Search.js";
 import Cv from "../models/Cv.js";
@@ -72,12 +73,16 @@ export const myApplications = async (req, res, next) => {
 export const listApplications = async (req, res, next) => {
   try {
     const { state, search, q } = req.query;
-    const filter = {};
-    if (state && APP_STATES.includes(state)) filter.state = state;
-    if (search) filter.search = search;
+    const matchStage = {};
+
+    if (state && APP_STATES.includes(state)) matchStage.state = state;
+    if (search && mongoose.Types.ObjectId.isValid(search)) {
+      matchStage.search = new mongoose.Types.ObjectId(search);
+    }
+
     if (q && q.trim()) {
       const rx = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      filter.$or = [
+      matchStage.$or = [
         { "cvSnapshot.nombre": rx },
         { "cvSnapshot.apellido": rx },
         { "cvSnapshot.email": rx },
@@ -85,11 +90,71 @@ export const listApplications = async (req, res, next) => {
       ];
     }
 
-    const items = await Application.find(filter)
-      .populate("user", "publicId nombre apellido email rol")
-      .populate("search", "titulo area estado ubicacion")
-      .sort({ createdAt: -1 })
-      .lean();
+    const items = await Application.aggregate([
+      { $match: matchStage },
+      { $sort: { createdAt: -1 } },
+      // Lookup User
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "userObj"
+        }
+      },
+      { $unwind: { path: "$userObj", preserveNullAndEmptyArrays: true } },
+      // Lookup Search
+      {
+        $lookup: {
+          from: "searches",
+          localField: "search",
+          foreignField: "_id",
+          as: "searchObj"
+        }
+      },
+      { $unwind: { path: "$searchObj", preserveNullAndEmptyArrays: true } },
+      // Lookup Current CV (para obtener el ID actualizado)
+      {
+        $lookup: {
+          from: "cvs",
+          localField: "user", // Application.user es el ID del usuario
+          foreignField: "user",
+          as: "currentCv"
+        }
+      },
+      { $unwind: { path: "$currentCv", preserveNullAndEmptyArrays: true } },
+      // Project
+      {
+        $project: {
+          _id: 1,
+          state: 1,
+          message: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          cvRef: 1,
+          cvSnapshot: 1,
+          user: {
+            _id: "$userObj._id",
+            publicId: "$userObj.publicId",
+            nombre: "$userObj.nombre",
+            apellido: "$userObj.apellido",
+            email: "$userObj.email",
+            rol: "$userObj.rol",
+            direccion: "$userObj.direccion",
+            telefono: "$userObj.telefono",
+            cvId: "$currentCv._id" // <--- Aquí inyectamos el ID del CV actual
+          },
+          search: {
+            _id: "$searchObj._id",
+            titulo: "$searchObj.titulo",
+            area: "$searchObj.area",
+            estado: "$searchObj.estado",
+            ubicacion: "$searchObj.ubicacion",
+            descripcion: "$searchObj.descripcion"
+          }
+        }
+      }
+    ]);
 
     res.json({ items });
   } catch (e) { next(e); }

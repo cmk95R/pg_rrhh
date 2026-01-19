@@ -3,13 +3,12 @@ import * as React from "react";
 import {
   Container, Paper, Stack, Typography, Button, TextField, MenuItem,
   Snackbar, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  Divider, FormControl, InputLabel, Select, Chip, List, ListItem, ListItemText, IconButton
+  Divider, FormControl, InputLabel, Select, Chip
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
 import { DataGrid } from "@mui/x-data-grid";
+import { useNavigate } from "react-router-dom";
 import { listSearchesApi, createSearchApi, updateSearchApi, deleteSearchApi } from "../api/searches";
-import { listAreasApi, createAreaApi, deleteAreaApi } from "../api/areas";
+import { listAreasApi } from "../api/areas";
 
 const ESTADOS = ["Activa", "Pausada", "Cerrada"];
 
@@ -19,72 +18,8 @@ const CHIP_H = 28;
 
 const emptyForm = { titulo: "", area: "", estado: "Activa", ubicacion: "", descripcion: "" };
 
-// --- Componente Modal para Gestionar Áreas ---
-function AreasManagerDialog({ open, onClose, areas, onUpdate }) {
-  const [newArea, setNewArea] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-
-  const handleAdd = async () => {
-    if (!newArea.trim()) return;
-    setLoading(true);
-    try {
-      await createAreaApi({ nombre: newArea });
-      setNewArea("");
-      onUpdate(); // Recargar lista
-    } catch (e) {
-      alert(e.response?.data?.message || "Error al crear área");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("¿Eliminar esta área?")) return;
-    try {
-      await deleteAreaApi(id);
-      onUpdate();
-    } catch (e) {
-      alert("Error al eliminar área");
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Gestionar Áreas</DialogTitle>
-      <DialogContent dividers>
-        <Stack direction="row" spacing={1} mb={2} mt={1}>
-          <TextField
-            size="small"
-            label="Nueva área"
-            value={newArea}
-            onChange={(e) => setNewArea(e.target.value)}
-            fullWidth
-          />
-          <Button variant="contained" onClick={handleAdd} disabled={loading}>
-            <AddIcon />
-          </Button>
-        </Stack>
-        <List dense sx={{ maxHeight: 300, overflow: "auto" }}>
-          {areas.map((a) => (
-            <ListItem key={a._id} divider secondaryAction={
-              <IconButton edge="end" color="error" onClick={() => handleDelete(a._id)}>
-                <DeleteIcon />
-              </IconButton>
-            }>
-              <ListItemText primary={a.nombre} />
-            </ListItem>
-          ))}
-          {areas.length === 0 && <Typography variant="body2" align="center" sx={{ mt: 2 }}>No hay áreas creadas</Typography>}
-        </List>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cerrar</Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 export default function AdminSearches() {
+  const navigate = useNavigate();
   const [rows, setRows] = React.useState([]);
   const [areas, setAreas] = React.useState([]); // Estado para áreas dinámicas
   const [loading, setLoading] = React.useState(true);
@@ -97,7 +32,6 @@ export default function AdminSearches() {
 
   // modal
   const [openDlg, setOpenDlg] = React.useState(false);
-  const [openAreasDlg, setOpenAreasDlg] = React.useState(false); // Modal de áreas
   const [saving, setSaving] = React.useState(false);
   const [form, setForm] = React.useState(emptyForm);
   const [editingId, setEditingId] = React.useState(null);
@@ -124,6 +58,7 @@ export default function AdminSearches() {
         estado: s.estado,
         ubicacion: s.ubicacion,
         descripcion: s.descripcion,
+        created: s.createdAt,
         updatedAt: s.updatedAt,
       })));
     } catch (e) {
@@ -283,14 +218,28 @@ export default function AdminSearches() {
       sortable: false,
     },
     {
-      field: "updatedAt",
-      headerName: "Última actualización",
-      width: 190,
+      field: "created",
+      headerName: "Creado",
+      width: 160,
       align: "center",
       headerAlign: "center",
-      valueGetter: (p) => (p.value ? new Date(p.value).toLocaleString() : ""),
+      type: "dateTime",
+      valueGetter: (value) => (value ? new Date(value) : null),
+      valueFormatter: (value) => (value ? value.toLocaleString() : ""),
+      sortable: true
+    },
+    {
+      field: "updatedAt",
+      headerName: "Última actualización",
+      width: 160,
+      align: "center",
+      headerAlign: "center",
+      type: "dateTime",
+      valueGetter: (value) => (value ? new Date(value) : null),
+      valueFormatter: (value) => (value ? value.toLocaleString() : ""),
       sortable: true,
     },
+    
     {
       field: "acciones",
       headerName: "Acciones",
@@ -349,7 +298,7 @@ export default function AdminSearches() {
           ))}
         </Stack>
 
-        <Button variant="outlined" onClick={() => setOpenAreasDlg(true)} sx={{ lineHeight: 'normal' }}>Gestionar Áreas</Button>
+        
         <Button variant="contained" onClick={openCreate} sx={{ lineHeight: 'normal' }} fontsize="small">Agregar búsqueda</Button>
       </Stack>
 
@@ -455,14 +404,6 @@ export default function AdminSearches() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Modal de Gestión de Áreas */}
-      <AreasManagerDialog 
-        open={openAreasDlg} 
-        onClose={() => setOpenAreasDlg(false)} 
-        areas={areas} 
-        onUpdate={fetchAreas} 
-      />
 
       <Snackbar
         open={snack.open}

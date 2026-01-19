@@ -24,3 +24,9 @@ export const upsertMyCv = (formData) => {
 export const upsertMyCvJson = (payload) => api.post("/cv/me", payload);
 
 export const getMyCvDownloadUrlApi = () => api.get("/cv/me/download");
+
+/**
+ * ADMIN: Obtiene un CV específico por su ID.
+ * @param {string} id - El ID del CV.
+ */
+export const getCvByIdApi = (id) => api.get(`/admin/cvs/${id}`);
