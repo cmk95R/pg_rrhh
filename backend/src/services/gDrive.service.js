@@ -2,41 +2,17 @@ import { google } from "googleapis";
 import { Readable } from "stream";
 // Función para obtener un cliente de Google Drive autenticado
 const getDriveClient = () => {
-    // Opción Prioritaria: OAuth2 (Para cuentas personales @gmail.com)
-    // Las cuentas personales NO pueden usar Service Accounts para subir archivos (error de cuota).
     const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, GOOGLE_REDIRECT_URI } = process.env;
 
-    if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_REFRESH_TOKEN) {
-        const oauth2Client = new google.auth.OAuth2(
-            GOOGLE_CLIENT_ID,
-            GOOGLE_CLIENT_SECRET,
-            GOOGLE_REDIRECT_URI || "https://developers.google.com/oauthplayground"
-        );
-        oauth2Client.setCredentials({ refresh_token: GOOGLE_REFRESH_TOKEN });
-        return google.drive({ version: "v3", auth: oauth2Client });
-    }
+    const oauth2Client = new google.auth.OAuth2(
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        GOOGLE_REDIRECT_URI 
+    );
 
-    // Opción 1: Contenido del JSON en variable de entorno (GOOGLE_SERVICE_ACCOUNT_JSON)
-    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-        let credentials;
-        try {
-            credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-        } catch (error) {
-            throw new Error(`Error crítico en GOOGLE_SERVICE_ACCOUNT_JSON: El formato JSON es inválido. Asegúrate de que todas las claves estén entre comillas dobles ("). Detalle: ${error.message}`);
-        }
+    oauth2Client.setCredentials({ refresh_token: GOOGLE_REFRESH_TOKEN });
 
-        const auth = new google.auth.GoogleAuth({
-            credentials,
-            scopes: ['https://www.googleapis.com/auth/drive'],
-        });
-        return google.drive({ version: "v3", auth });
-    }
-
-    // Opción 2: Ruta al archivo definida en GOOGLE_APPLICATION_CREDENTIALS (automático)
-    const auth = new google.auth.GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    return google.drive({ version: "v3", auth });
+    return google.drive({ version: "v3", auth: oauth2Client });
 };
 
 // Helper para convertir Buffer a Stream
@@ -45,6 +21,38 @@ const bufferToStream = (buffer) => {
     stream.push(buffer);
     stream.push(null);
     return stream;
+};
+
+/**
+ * Busca una carpeta por nombre y si no existe la crea.
+ */
+const findOrCreateFolder = async (drive, folderName) => {
+    try {
+        const q = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`;
+        const res = await drive.files.list({
+            q,
+            fields: 'files(id, name)',
+            spaces: 'drive',
+        });
+        
+        if (res.data.files.length > 0) {
+            return res.data.files[0].id;
+        }
+        
+        const fileMetadata = {
+            name: folderName,
+            mimeType: 'application/vnd.google-apps.folder',
+        };
+        const file = await drive.files.create({
+            requestBody: fileMetadata,
+            fields: 'id',
+        });
+        console.log(`📂 Carpeta '${folderName}' creada automáticamente (ID: ${file.data.id})`);
+        return file.data.id;
+    } catch (error) {
+        console.error("Error buscando/creando carpeta:", error);
+        throw error;
+    }
 };
 
 /**
@@ -57,10 +65,11 @@ const bufferToStream = (buffer) => {
 export const uploadFileToGoogleDrive = async (fileBuffer, fileName) => {
     try {
         const drive = getDriveClient();
-        const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+        let folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
         if (!folderId) {
-            throw new Error("Falta la variable de entorno GOOGLE_DRIVE_FOLDER_ID");
+            // Si no hay ID configurado, buscamos o creamos una carpeta por defecto
+            folderId = await findOrCreateFolder(drive, "PriorityGroup_CVs");
         }
 
         const fileMetadata = {
@@ -76,7 +85,8 @@ export const uploadFileToGoogleDrive = async (fileBuffer, fileName) => {
         const response = await drive.files.create({
             requestBody: fileMetadata,
             media: media,
-            fields: "id, webViewLink, webContentLink",
+            fields: "id, webViewLink, webContentLink"
+            
         });
         
         // --- PERMISOS PÚBLICOS ---
@@ -88,6 +98,7 @@ export const uploadFileToGoogleDrive = async (fileBuffer, fileName) => {
                 role: 'reader',
                 type: 'anyone',
             },
+            
         });
 
         console.log(`Archivo ${fileName} subido a Google Drive con éxito.`);

@@ -64,7 +64,10 @@ async function normalizePayload(body, file, user) {
     const cleanStr = (str) => (str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
     const uNombre = cleanStr(user.nombre);
     const uApellido = cleanStr(user.apellido);
-    const fileName = `CV_${uNombre}_${uApellido}_${user._id}.pdf`;
+    
+    const now = new Date();
+    const fecha = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+    const fileName = `CV_${uNombre}_${uApellido}_${fecha}.pdf`;
 
     const uploadResult = await uploadFileToGoogleDrive(file.buffer, fileName);
 

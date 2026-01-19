@@ -11,7 +11,8 @@ import {
   listUsersWithCv, // Asumiendo que esta es para la grilla de admin
   adminSetUserStatus, // Asumiendo que existen
   adminSetUserRole,   // Asumiendo que existen
-  adminUpdateUser     // <-- IMPORTAR AQUÍ
+  adminUpdateUser,     // <-- IMPORTAR AQUÍ
+  deleteUser          // <-- NUEVO
 } from "../controllers/user.controller.js";
 
 import {
@@ -56,6 +57,7 @@ userRouter.patch("/:id/status", adminSetUserStatus); // PATCH /api/admin/users/:
 userRouter.patch("/:id/role", adminSetUserRole);     // PATCH /api/admin/users/:id/role
 userRouter.get("/:userId/cv/download", downloadCvByUserId); // GET /api/admin/users/:userId/cv/download
 userRouter.patch("/:id", adminUpdateUser);           // PATCH /api/admin/users/:id  <-- NUEVA RUTA
+userRouter.delete("/:id", deleteUser);               // DELETE /api/admin/users/:id <-- NUEVA RUTA
 userRouter.post("/:id/reset-password", requireRole("admin"), adminResetUserPassword); // POST /api/admin/users/:id/reset-password
 router.use("/users", userRouter); // Monta las rutas de usuario bajo /api/admin/users
 

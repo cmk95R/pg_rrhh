@@ -70,3 +70,9 @@ export const resetUserPasswordApi = (userId, newPassword) => api.post(`/admin/us
  * Calls PATCH /admin/users/:id
  */
 export const adminUpdateUserApi = (userId, data) => api.patch(`/admin/users/${userId}`, data);
+
+/**
+ * 🔑 ADMIN: Eliminar un usuario.
+ * Calls DELETE /admin/users/:id
+ */
+export const deleteUserApi = (userId) => api.delete(`/admin/users/${userId}`);

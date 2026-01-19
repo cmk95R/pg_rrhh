@@ -9,10 +9,12 @@ import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ToggleOffIcon from '@mui/icons-material/ToggleOff';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { DataGrid } from "@mui/x-data-grid";
 // Usamos la API que soporta paginación y filtros
-import { listUsersWithCvApi, adminSetUserRoleApi, adminSetUserStatusApi } from "../api/users";
+import { listUsersWithCvApi, adminSetUserRoleApi, adminSetUserStatusApi, deleteUserApi } from "../api/users";
 import UserDetailsDialog from "../components/admin/UserDetailsDialog";
+import Swal from 'sweetalert2';
 
 export default function AdminUsersGrid() {
   // Estado para manejar la paginación y datos del servidor
@@ -111,10 +113,21 @@ export default function AdminUsersGrid() {
   }, [fetchUsers]); // fetchUsers ya depende de los filtros y paginación
 
   // --- Lógica del modal de cambio de rol ---
-  const handleOpenRoleModal = (user) => {
-    setSelectedUser(user);
-    setNewRole(user.rol);
-    setRoleModalOpen(true);
+  const handleOpenRoleModal = async (user) => {
+    const result = await Swal.fire({
+      title: '¿Gestionar rol?',
+      text: `Vas a modificar el rol de ${user.nombre}.`,
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      setSelectedUser(user);
+      setNewRole(user.rol);
+      setRoleModalOpen(true);
+    }
   };
 
   const handleCloseRoleModal = () => {
@@ -139,19 +152,14 @@ export default function AdminUsersGrid() {
       handleCloseRoleModal();
       return;
     }
+
     try {
       await adminSetUserRoleApi(selectedUser.id, newRole);
       setRows(prev => prev.map(r => r.id === selectedUser.id ? { ...r, rol: newRole } : r));
-      // CORRECCIÓN: Asignamos un color según el rol.
-      const severity = newRole === 'admin' || newRole === 'rrhh' ? 'info' : 'success';
-      setSnack({
-        open: true,
-        severity: severity,
-        msg: `Rol de ${selectedUser.nombre} cambiado a ${newRole}`
-      });
+      Swal.fire('¡Actualizado!', `El rol ha sido actualizado a ${newRole}.`, 'success');
     } catch (e) {
       console.error(e);
-      setSnack({ open: true, severity: "error", msg: e?.response?.data?.message || "No se pudo cambiar el rol" });
+      Swal.fire('Error', e?.response?.data?.message || "No se pudo cambiar el rol", 'error');
     } finally {
       handleCloseRoleModal();
     }
@@ -160,14 +168,51 @@ export default function AdminUsersGrid() {
   const handleToggleStatus = async (user) => {
     if (!user) return;
     const newStatus = user.estado === 'activo' ? 'inactivo' : 'activo';
-    try {
-      await adminSetUserStatusApi(user.id, newStatus);
-      setRows(prev => prev.map(r => r.id === user.id ? { ...r, estado: newStatus } : r));
-      // CORRECCIÓN: Cambiamos el color de la notificación según el estado.
-      setSnack({ open: true, severity: newStatus === 'activo' ? 'success' : 'warning', msg: `${user.nombre} ahora está ${newStatus}` });
-    } catch (e) {
-      console.error(e);
-      setSnack({ open: true, severity: "error", msg: e?.response?.data?.message || "No se pudo cambiar el estado" });
+    const actionText = newStatus === 'activo' ? 'habilitar' : 'deshabilitar';
+
+    const result = await Swal.fire({
+      title: `¿${actionText.charAt(0).toUpperCase() + actionText.slice(1)} usuario?`,
+      text: `Vas a ${actionText} a ${user.nombre}.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: newStatus === 'activo' ? '#2e7d32' : '#ed6c02',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: `Sí, ${actionText}`,
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await adminSetUserStatusApi(user.id, newStatus);
+        setRows(prev => prev.map(r => r.id === user.id ? { ...r, estado: newStatus } : r));
+        Swal.fire('¡Actualizado!', `El usuario ha sido ${newStatus === 'activo' ? 'habilitado' : 'deshabilitado'}.`, 'success');
+      } catch (e) {
+        console.error(e);
+        Swal.fire('Error', e?.response?.data?.message || "No se pudo cambiar el estado", 'error');
+      }
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `Vas a eliminar al usuario ${user.nombre} ${user.apellido}. Esta acción no es reversible.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await deleteUserApi(user.id);
+        Swal.fire('¡Eliminado!', 'El usuario ha sido eliminado.', 'success');
+        fetchUsers();
+      } catch (e) {
+        Swal.fire('Error', e?.response?.data?.message || 'No se pudo eliminar el usuario.', 'error');
+      }
     }
   };
 
@@ -240,7 +285,7 @@ export default function AdminUsersGrid() {
     {
       field: "actions",
       headerName: "Acciones",
-      flex: 1,
+      flex: 1.2,
       minWidth: 120,
       align: "center", headerAlign: "center",
       sortable: false,
@@ -254,6 +299,11 @@ export default function AdminUsersGrid() {
           <Tooltip title="Cambiar Rol">
             <IconButton onClick={() => handleOpenRoleModal(params.row)} size="small">
               <ManageAccountsIcon fontSize="large" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Eliminar Usuario">
+            <IconButton onClick={() => handleDeleteUser(params.row)} color="error" size="small">
+              <DeleteIcon fontSize="large" />
             </IconButton>
           </Tooltip>
         </Stack>

@@ -1,8 +1,11 @@
 // controllers/user.controller.js
 import crypto from "crypto";
 import User from "../models/User.js";
+import Application from "../models/Application.js";
+import Cv from "../models/Cv.js";
 import { normalizeDireccion } from "../utils/normalize.js";
 import { sendTempPasswordEmail } from "../services/email.service.js";
+import { deleteFileFromGoogleDrive } from "../services/gDrive.service.js";
 
 // --- CORRECCIÓN: La ruta ahora es PATCH /users/me ---
 export const editUser = async (req, res, next) => {
@@ -322,5 +325,32 @@ export const adminUpdateUser = async (req, res, next) => {
     if (!u) return res.status(404).json({ message: "Usuario no encontrado" });
 
     res.json({ message: "Usuario actualizado correctamente", user: u });
+  } catch (e) { next(e); }
+};
+
+/**
+ * 🔑 ADMIN: Elimina un usuario por ID.
+ * DELETE /admin/users/:id
+ */
+export const deleteUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const u = await User.findByIdAndDelete(id);
+    if (!u) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    // 1. Eliminar todas las postulaciones del usuario
+    await Application.deleteMany({ user: id });
+
+    // 2. Buscar y eliminar el CV (y su archivo en Drive)
+    const cv = await Cv.findOne({ user: id });
+    if (cv) {
+      if (cv.cvFile?.providerId) {
+        // Intentamos borrar el archivo de Drive (sin detener el proceso si falla)
+        await deleteFileFromGoogleDrive(cv.cvFile.providerId);
+      }
+      await Cv.deleteOne({ _id: cv._id });
+    }
+
+    res.json({ message: "Usuario y todos sus datos asociados eliminados correctamente" });
   } catch (e) { next(e); }
 };
