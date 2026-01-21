@@ -15,6 +15,8 @@ export const getDashboardData = async (req, res, next) => {
       newApplications,
       activeSearches,
       pendingApplications,
+      hiredApplications,
+      rejectedApplications,
       totalUsers,
       totalCvs,
       newUsers,
@@ -23,7 +25,9 @@ export const getDashboardData = async (req, res, next) => {
     ] = await Promise.all([
       Application.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
       Search.countDocuments({ estado: "Activa" }),
-      Application.countDocuments({ state: { $in: ["Enviada", "En revisión"] } }),
+      Application.countDocuments({ state: { $regex: /pending|enviada|en revisión|preseleccionado/i } }),
+      Application.countDocuments({ state: { $regex: /Contratado|hired/i } }),
+      Application.countDocuments({ state: { $regex: /Rechazado|rejected|declined/i } }),
       User.countDocuments({ rol: "user" }),
       Cv.countDocuments({ "cvFile.providerId": { $exists: true, $ne: null } }), // Total CVs cargados (con archivo)
       User.countDocuments({ rol: "user", createdAt: { $gte: thirtyDaysAgo } }), // Nuevos usuarios (últimos 30 días)
@@ -45,12 +49,14 @@ export const getDashboardData = async (req, res, next) => {
         newApplications,
         activeSearches,
         pendingApplications,
+        hiredApplications,
+        rejectedApplications,
         totalUsers,
         totalCvs,
         newUsers
       },
       recentApplications,
-      recentUsers
+      recentUsers,
     });
   } catch (error) {
     next(error);

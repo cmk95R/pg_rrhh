@@ -10,6 +10,7 @@ import {
     Stack,
     List,
     ListItem,
+    ListItemButton,
     ListItemText,
     ListItemAvatar,
     Divider,
@@ -29,6 +30,8 @@ import AddIcon from '@mui/icons-material/Add';
 import ArticleIcon from '@mui/icons-material/Article';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DescriptionIcon from '@mui/icons-material/Description';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { getDashboardDataApi } from '../api/admin'; // Asegúrate que la ruta a tu API sea correcta
 
 // --- FUNCIÓN HELPER PARA TIEMPO RELATIVO ---
@@ -120,6 +123,7 @@ export default function AdminDashboard() {
                 setLoading(true);
                 setError('');
                 const { data } = await getDashboardDataApi();
+
                 setStats(data.stats);
                 setRecentApplications(data.recentApplications);
                 setRecentUsers(data.recentUsers || []);
@@ -151,42 +155,56 @@ export default function AdminDashboard() {
                 <Grid item xs={12} sm={6} md={4}>
                     <Tooltip title="Cantidad de postulaciones recibidas en la última semana">
                         <Box>
-                            <StatCard title="Postulaciones (últ. 7 días)" value={stats.newApplications} icon={<RateReviewIcon />} color="primary" />
+                            <StatCard title="Postulaciones (últ. 7 días)" value={stats.newApplications || 0} icon={<RateReviewIcon />} color="primary" />
                         </Box>
                     </Tooltip>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <Tooltip title="Ofertas de empleo actualmente publicadas y visibles">
                         <Box>
-                            <StatCard title="Búsquedas Activas" value={stats.activeSearches} icon={<WorkIcon />} color="success" />
+                            <StatCard title="Búsquedas Activas" value={stats.activeSearches || 0} icon={<WorkIcon />} color="success" />
                         </Box>
                     </Tooltip>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <Tooltip title="Solicitudes en estado 'Enviada' o 'En revisión' que requieren atención.">
                         <Box>
-                            <StatCard title="Postulaciones Pendientes" value={stats.pendingApplications} icon={<VisibilityIcon />} color="warning" />
+                            <StatCard title="Postulaciones Pendientes" value={stats.pendingApplications || 0} icon={<VisibilityIcon />} color="warning" />
+                        </Box>
+                    </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                    <Tooltip title="Solicitudes en estado 'Contratado'">
+                        <Box>
+                            <StatCard title="Contratados" value={stats.hiredApplications || 0} icon={<CheckCircleIcon />} color="success" />
+                        </Box>
+                    </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                    <Tooltip title="Solicitudes en estado 'Rechazado'">
+                        <Box>
+                            <StatCard title="Rechazados" value={stats.rejectedApplications || 0} icon={<CancelIcon />} color="error" />
                         </Box>
                     </Tooltip>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <Tooltip title="Número total de usuarios registrados como candidatos">
                         <Box>
-                            <StatCard title="Candidatos Totales" value={stats.totalUsers} icon={<PeopleIcon />} color="info" />
+                            <StatCard title="Candidatos Totales" value={stats.totalUsers || 0} icon={<PeopleIcon />} color="info" />
                         </Box>
                     </Tooltip>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <Tooltip title="Total de usuarios que han subido su archivo de CV">
                         <Box>
-                            <StatCard title="CVs Cargados" value={stats.totalCvs} icon={<DescriptionIcon />} color="secondary" />
+                            <StatCard title="CVs Cargados" value={stats.totalCvs || 0} icon={<DescriptionIcon />} color="secondary" />
                         </Box>
                     </Tooltip>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <Tooltip title="Usuarios que se han registrado en el último mes">
                         <Box>
-                            <StatCard title="Nuevos Usuarios (30 días)" value={stats.newUsers} icon={<PersonAddIcon />} color="error" />
+                            <StatCard title="Nuevos Usuarios (30 días)" value={stats.newUsers || 0} icon={<PersonAddIcon />} color="error" />
                         </Box>
                     </Tooltip>
                 </Grid>
@@ -204,9 +222,8 @@ export default function AdminDashboard() {
                             <List sx={{ p: 0 }}>
                                 {recentApplications.map((app, index) => (
                                     <React.Fragment key={app._id}>
-                                        <ListItem
-                                            button
-                                            // --- CORRECCIÓN: Añadir comprobación para el enlace ---
+                                        <ListItem disablePadding>
+                                            <ListItemButton
                                             component={app.user ? RouterLink : 'div'} // Usar 'div' si el usuario no existe para que no sea un enlace roto
                                             to={app.user ? `/admin/applications?q=${app.user.nombre}` : undefined}
                                             sx={{ py: 1.5, px: 3 }}
@@ -224,11 +241,12 @@ export default function AdminDashboard() {
                                                         {app.user ? `${app.user.nombre} ${app.user.apellido}` : 'Usuario Eliminado'}
                                                     </Typography>
                                                 }
-                                                secondary={`Se postuló a ${app.search ? app.search.titulo : 'una búsqueda eliminada'}`}
+                                                secondary={`${app.state} • ${app.search ? app.search.titulo : 'Búsqueda eliminada'}`}
                                             />
                                             <Typography variant="body2" color="text.secondary">
                                                 {formatTimeAgo(app.createdAt)}
                                             </Typography>
+                                            </ListItemButton>
                                         </ListItem>
                                         {index < recentApplications.length - 1 && <Divider component="li" variant="inset" />}
                                     </React.Fragment>
@@ -247,8 +265,8 @@ export default function AdminDashboard() {
                             <List sx={{ p: 0 }}>
                                 {recentUsers.map((u, index) => (
                                     <React.Fragment key={u._id}>
-                                        <ListItem
-                                            button
+                                        <ListItem disablePadding>
+                                            <ListItemButton
                                             component={RouterLink}
                                             to={`/admin/users?q=${u.email}`}
                                             sx={{ py: 1.5, px: 3 }}
@@ -269,6 +287,7 @@ export default function AdminDashboard() {
                                             <Typography variant="body2" color="text.secondary">
                                                 {formatTimeAgo(u.createdAt)}
                                             </Typography>
+                                            </ListItemButton>
                                         </ListItem>
                                         {index < recentUsers.length - 1 && <Divider component="li" variant="inset" />}
                                     </React.Fragment>
