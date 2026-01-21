@@ -3,16 +3,21 @@ import {
   Box, Stack, Button, Chip, TextField, MenuItem,Container,
   Snackbar, Alert, Paper, Typography, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select,
-  IconButton, Tooltip, Grid, Divider, Avatar
+  IconButton, Tooltip, Grid, Divider, Avatar, InputAdornment
 } from "@mui/material";
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 import DeleteIcon from '@mui/icons-material/Delete';
+import LockResetIcon from '@mui/icons-material/LockReset';
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { DataGrid } from "@mui/x-data-grid";
+import GoogleIcon from "@mui/icons-material/Google";
+import EmailIcon from "@mui/icons-material/Email";
 // Usamos la API que soporta paginación y filtros
-import { listUsersWithCvApi, adminSetUserRoleApi, adminSetUserStatusApi, deleteUserApi } from "../api/users";
+import { listUsersWithCvApi, adminSetUserRoleApi, adminSetUserStatusApi, deleteUserApi, resetUserPasswordApi } from "../api/users";
 import UserDetailsDialog from "../components/admin/UserDetailsDialog";
 import Swal from 'sweetalert2';
 
@@ -29,6 +34,11 @@ export default function AdminUsersGrid() {
   const [detailsModalOpen, setDetailsModalOpen] = React.useState(false);
   const [selectedUser, setSelectedUser] = React.useState(null);
   const [newRole, setNewRole] = React.useState('');
+
+  // Estado para el modal de Reset Password
+  const [resetModalOpen, setResetModalOpen] = React.useState(false);
+  const [resettingUser, setResettingUser] = React.useState(null);
+  const [tempPassword, setTempPassword] = React.useState("");
   
   // Estado para filtros
   const [query, setQuery] = React.useState("");
@@ -85,7 +95,8 @@ export default function AdminUsersGrid() {
           fechaNacimiento: u.nacimiento || u.fechaNacimiento || u.fechaNacimiento || null,
           // Extraemos datos adicionales
           linkedin: u.cvLinkedin || "",
-          cvFile: cvData.cvFile || null
+          cvFile: cvData.cvFile || null,
+           authMethod: u.providers?.google ? "Google" : "Email",
         };
       });
 
@@ -165,6 +176,62 @@ export default function AdminUsersGrid() {
     }
   };  
 
+  // --- Lógica de Reset Password ---
+  const handleResetPasswordClick = async (user) => {
+    // Verificar si es usuario de Google
+    if (user.providers?.google) {
+      Swal.fire('Acción no permitida', 'Este usuario se registró con Google y no utiliza contraseña.', 'info');
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: 'Restablecer contraseña',
+      text: `¿Deseas cambiar la contraseña de ${user.nombre}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, continuar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      setResettingUser(user);
+      setTempPassword(""); // Limpiar campo
+      setResetModalOpen(true);
+    }
+  };
+
+  const generatePassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+    let pass = "";
+    for (let i = 0; i < 12; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setTempPassword(pass);
+  };
+
+  const copyToClipboard = () => {
+    if (tempPassword) {
+      navigator.clipboard.writeText(tempPassword);
+      setSnack({ open: true, severity: "info", msg: "Contraseña copiada al portapapeles" });
+    }
+  };
+
+  const handleSavePassword = async () => {
+    if (!tempPassword) {
+      setSnack({ open: true, severity: "warning", msg: "Debes ingresar o generar una contraseña." });
+      return;
+    }
+    
+    try {
+      await resetUserPasswordApi(resettingUser.id, tempPassword);
+      setResetModalOpen(false);
+      Swal.fire('¡Guardado!', `La contraseña ha sido actualizada .`, 'success');
+    } catch (e) {
+      console.error(e);
+      Swal.fire('Error', 'Hubo un problema al restablecer la contraseña.', 'error');
+    }
+  };
+
   const handleToggleStatus = async (user) => {
     if (!user) return;
     const newStatus = user.estado === 'activo' ? 'inactivo' : 'activo';
@@ -220,8 +287,20 @@ export default function AdminUsersGrid() {
     { field: "nombre", headerName: "Nombre", flex: 1, minWidth: 150,align: "center", headerAlign: "center"},
     { field: "apellido", headerName: "Apellido", flex: 1, minWidth: 150,align: "center", headerAlign: "center" },
     { field: "email", headerName: "Email", flex: 1.5, minWidth: 220, align: "center", headerAlign: "center" },
+     {
+          field: "authMethod",
+          headerName: "Registro",
+          width: 80,
+          align: "center",
+          headerAlign: "center",
+          renderCell: (params) => (
+            <Tooltip title={params.value === "Google" ? "Registrado con Google" : "Registrado con Email"}>
+              {params.value === "Google" ? <GoogleIcon color="error" fontSize="small" /> : <EmailIcon color="action" fontSize="small" />}
+            </Tooltip>
+          ),
+        },
     {
-      field: "rol",
+    field: "rol",
       headerName: "Rol",
       align: "center", headerAlign: "center",
       flex: 1,
@@ -285,8 +364,8 @@ export default function AdminUsersGrid() {
     {
       field: "actions",
       headerName: "Acciones",
-      flex: 1.2,
-      minWidth: 120,
+      flex: 1.4,
+      width: 140,
       align: "center", headerAlign: "center",
       sortable: false,
       renderCell: (params) => (
@@ -294,6 +373,11 @@ export default function AdminUsersGrid() {
           <Tooltip title="Ver Detalles">
             <IconButton onClick={() => handleOpenDetailsModal(params.row)} size="small">
               <VisibilityIcon fontSize="large" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={params.row.providers?.google ? "Usuario Google (Sin contraseña)" : "Restablecer Contraseña"}>
+            <IconButton onClick={() => handleResetPasswordClick(params.row)} color="warning" size="small" disabled={!!params.row.providers?.google}>
+              <LockResetIcon fontSize="large" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Cambiar Rol">
@@ -395,6 +479,47 @@ export default function AdminUsersGrid() {
             disabled={!selectedUser || selectedUser.rol === newRole}
           >
             Cambiar Rol
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Reset Password */}
+      <Dialog open={resetModalOpen} onClose={() => setResetModalOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Restablecer Contraseña</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" gutterBottom>
+            Usuario: <strong>{resettingUser?.nombre} {resettingUser?.apellido}</strong>
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Genera una clave temporal o escribe una manualmente.
+          </Typography>
+          
+          <Stack spacing={2}>
+            <Button variant="outlined" startIcon={<AutoFixHighIcon />} onClick={generatePassword}>
+              Generar Aleatoria
+            </Button>
+            
+            <TextField
+              fullWidth
+              label="Nueva Contraseña"
+              value={tempPassword}
+              onChange={(e) => setTempPassword(e.target.value)}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={copyToClipboard} edge="end" disabled={!tempPassword}>
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetModalOpen(false)}>Cancelar</Button>
+          <Button variant="contained" color="primary" onClick={handleSavePassword} disabled={!tempPassword}>
+            Guardar y Enviar
           </Button>
         </DialogActions>
       </Dialog>
