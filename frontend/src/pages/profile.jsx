@@ -24,6 +24,9 @@ import {
   Description as DescriptionIcon // Para Datos Personales (si actualizas ese form)
 } from "@mui/icons-material";
 import DownloadIcon from "@mui/icons-material/Download";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css'; // Opcional: para capa de texto
+import 'react-pdf/dist/Page/TextLayer.css';       // Opcional: para selección de texto
 
 // APIs
 import { profileApi } from "../api/auth";
@@ -32,6 +35,9 @@ import { getMyCvApi, upsertMyCv, upsertMyCvJson, getMyCvDownloadUrlApi } from ".
 
 // Componentes
 import DireccionAR from "../components/DireccionAR";
+
+// Configuración del worker de PDF.js (usando CDN para compatibilidad rápida)
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 // Utils
 // import { normalizeDireccion } from "../utils/normalize"; 
@@ -772,17 +778,27 @@ const UploadCV = ({ existingFile, lastUpdated, onFileSelect, reviewData, newFile
   const [isDownloading, setIsDownloading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [openPreview, setOpenPreview] = useState(false);
+  const [numPages, setNumPages] = useState(null);
+  const [pageNumber, setPageNumber] = useState(1);
 
   const fallbackName = reviewData?.nombre ? `CV_${reviewData.nombre.replace(/\s+/g, '_')}_${(reviewData.apellido || '').replace(/\s+/g, '_')}.pdf` : "CV_Actual.pdf";
   const existingFileName = existingFile?.fileName || existingFile?.filename || (existingFile?.providerId ? fallbackName : null);
 
+  // Efecto para manejar la URL de previsualización
   useEffect(() => {
     if (newFile) {
+      // Si hay un archivo nuevo local, creamos un Blob URL
       const objectUrl = URL.createObjectURL(newFile);
       setPreviewUrl(objectUrl);
       return () => URL.revokeObjectURL(objectUrl);
     } else if (existingFile?.providerId) {
-      setPreviewUrl(`https://drive.google.com/file/d/${existingFile.providerId}/preview`);
+      // Si es un archivo existente, NO usamos el preview de Google Drive (HTML)
+      // sino que lo dejamos null aquí y lo cargamos bajo demanda al abrir el modal
+      // para evitar llamadas innecesarias o problemas de CORS hasta que el usuario quiera verlo.
+      // Sin embargo, para react-pdf necesitamos el binario. 
+      // Si tu backend devuelve una URL firmada o directa, úsala.
+      // Por ahora, dejaremos null y lo manejaremos en handleOpenPreview.
+      setPreviewUrl(null);
     } else {
       setPreviewUrl(null);
     }
@@ -795,6 +811,27 @@ const UploadCV = ({ existingFile, lastUpdated, onFileSelect, reviewData, newFile
       onFileSelect(file);
     }
   };
+
+  const handleOpenPreview = async () => {
+    setOpenPreview(true);
+    setPageNumber(1);
+
+    // Si no hay archivo nuevo pero sí uno existente, intentamos obtener la URL de descarga
+    if (!newFile && existingFile?.providerId && !previewUrl) {
+      try {
+        const { data } = await getMyCvDownloadUrlApi();
+        if (data.downloadUrl) {
+          setPreviewUrl(data.downloadUrl);
+        }
+      } catch (error) {
+        console.error("Error al cargar PDF remoto:", error);
+        // Fallback: si falla la carga binaria, quizás quieras mostrar un error 
+        // o intentar abrirlo en otra pestaña.
+      }
+    }
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }) => setNumPages(numPages);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -833,8 +870,8 @@ const UploadCV = ({ existingFile, lastUpdated, onFileSelect, reviewData, newFile
                 {previewUrl && (
                   <Button 
                     size="small" 
-                    startIcon={<VisibilityIcon />} 
-                    onClick={() => setOpenPreview(true)}
+                    startIcon={<VisibilityIcon />}
+                    onClick={handleOpenPreview}
                     sx={{ display: 'block', mt: 1 }}
                   >
                     Ver Vista Previa
@@ -860,8 +897,8 @@ const UploadCV = ({ existingFile, lastUpdated, onFileSelect, reviewData, newFile
                       {existingFileName} <DownloadIcon fontSize="small" />
                     </Link>
                     <CheckCircleIcon color="success" fontSize="small" />
-                    {!selectedFileName && previewUrl && (
-                      <IconButton onClick={() => setOpenPreview(true)} size="small" color="primary" title="Ver Vista Previa">
+                    {!selectedFileName && existingFile?.providerId && (
+                      <IconButton onClick={handleOpenPreview} size="small" color="primary" title="Ver Vista Previa">
                         <VisibilityIcon />
                       </IconButton>
                     )}
@@ -880,18 +917,40 @@ const UploadCV = ({ existingFile, lastUpdated, onFileSelect, reviewData, newFile
             </Box>
 
             <Dialog open={openPreview} onClose={() => setOpenPreview(false)} fullWidth maxWidth="lg">
-              <DialogContent sx={{ height: '80vh', p: 0, overflow: 'hidden' }}>
-                {previewUrl && (
-                  <iframe 
-                    src={previewUrl} 
-                    width="100%" 
-                    height="100%" 
-                    style={{ border: 'none' }} 
-                    title="Vista previa del CV"
-                  />
+              <DialogContent sx={{ minHeight: '60vh', p: 2, bgcolor: '#f5f5f5', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                {previewUrl ? (
+                  <Document
+                    file={previewUrl}
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    loading={<CircularProgress />}
+                    error={
+                      <Box textAlign="center" mt={4}>
+                        <Typography color="error">No se pudo cargar la vista previa del PDF.</Typography>
+                        <Typography variant="caption">Es posible que el archivo remoto no permita acceso directo (CORS).</Typography>
+                      </Box>
+                    }
+                  >
+                    <Page 
+                      pageNumber={pageNumber} 
+                      renderTextLayer={false} 
+                      renderAnnotationLayer={false} 
+                      width={Math.min(window.innerWidth * 0.8, 800)} // Responsive width
+                    />
+                  </Document>
+                ) : (
+                  <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                    <CircularProgress />
+                  </Box>
                 )}
               </DialogContent>
               <DialogActions>
+                {numPages && (
+                  <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', pl: 2 }}>
+                    <Button disabled={pageNumber <= 1} onClick={() => setPageNumber(p => p - 1)}>Ant</Button>
+                    <Typography variant="body2" sx={{ mx: 2 }}>Página {pageNumber} de {numPages}</Typography>
+                    <Button disabled={pageNumber >= numPages} onClick={() => setPageNumber(p => p + 1)}>Sig</Button>
+                  </Box>
+                )}
                 <Button onClick={() => setOpenPreview(false)}>Cerrar</Button>
               </DialogActions>
             </Dialog>
