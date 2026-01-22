@@ -3,7 +3,7 @@ import {
   Box, Container, Grid, Typography, Card,
   Button, TextField, MenuItem, Stack, Snackbar, Alert, Skeleton,
   Stepper, Step, StepLabel, CircularProgress, Fade, IconButton, Link,
-  Dialog, DialogContent, DialogActions
+  Dialog, DialogContent, DialogActions, InputAdornment, Divider, useTheme
 } from "@mui/material";
 import { styled } from '@mui/material/styles';
 import {
@@ -12,21 +12,29 @@ import {
   Add as AddIcon,
   CloudUpload as CloudUploadIcon,
   Visibility as VisibilityIcon,
-  CheckCircle as CheckCircleIcon
+  CheckCircle as CheckCircleIcon,
+  // --- NUEVOS ICONOS AGREGADOS ---
+  School as SchoolIcon,
+  Business as BusinessIcon,
+  CalendarToday as CalendarIcon,
+  WorkspacePremium as CertificateIcon,
+  Work as WorkIcon,          // Para Experiencia (si actualizas ese form)
+  Person as PersonIcon,      // Para Datos Personales (si actualizas ese form)
+  Cake as CakeIcon,          // Para Datos Personales (si actualizas ese form)
+  Description as DescriptionIcon // Para Datos Personales (si actualizas ese form)
 } from "@mui/icons-material";
 import DownloadIcon from "@mui/icons-material/Download";
 
 // APIs
 import { profileApi } from "../api/auth";
 import { getMyCvApi, upsertMyCv, upsertMyCvJson, getMyCvDownloadUrlApi } from "../api/cv";
-import { editUserApi } from "../api/users";
+// import { editUserApi } from "../api/users"; // Comentado si no se usa
 
 // Componentes
 import DireccionAR from "../components/DireccionAR";
 
 // Utils
-import { normalizeDireccion } from "../utils/normalize";
-// import { mergeDireccion } from "../utils/merge";
+// import { normalizeDireccion } from "../utils/normalize"; 
 
 // Constantes
 const nivelesAcademicos = [
@@ -34,6 +42,8 @@ const nivelesAcademicos = [
   "Terciario/Técnico completo", "Universitario en curso", "Universitario completo",
   "Posgrado en curso", "Posgrado completo", "Curso/Bootcamp"
 ];
+const currentYear = new Date().getFullYear();
+const yearsList = Array.from({ length: 70 }, (_, i) => currentYear + 5 - i);
 const steps = ['Datos Personales', 'Contacto', 'Educación', 'Experiencia', 'Adjuntar CV', 'Revisar y Guardar'];
 
 // Helper para calcular edad
@@ -66,7 +76,7 @@ const VisuallyHiddenInput = styled('input')({
 export default function ProfileWizard() {
   const [loading, setLoading] = useState(true);
   const [cvData, setCvData] = useState({});
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); // eslint-disable-line no-unused-vars
   const [snack, setSnack] = useState({ open: false, severity: "success", msg: "" });
   const [activeStep, setActiveStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -82,8 +92,6 @@ export default function ProfileWizard() {
       setUser(userData);
 
       // --- LÓGICA DE FUSIÓN ---
-      // 1. La base son los datos del CV (que no tiene dirección).
-      // 2. Los datos del User (incluida la dirección) sobreescriben la base.
       setCvData({
         ...cv,
         ...userData,
@@ -106,9 +114,6 @@ export default function ProfileWizard() {
   };
 
   const handleDireccionChange = useCallback((dir) => {
-    // El componente DireccionAR ya nos da el formato correcto:
-    // { provincia: object, localidad: string }.
-    // Simplemente lo asignamos directamente al estado.
     setCvData(prev => ({ ...prev, direccion: dir }));
   }, []);
 
@@ -122,26 +127,16 @@ export default function ProfileWizard() {
 
   const handleFinalSave = async () => {
     setIsSaving(true);
-
     try {
-      // --- CORRECCIÓN: Se consolida el guardado en una sola llamada a la API del CV ---
-      // El backend (upsertMyCV) ya se encarga de sincronizar los datos con el modelo User.
-      const payload = {
-        ...cvData,
-      };
+      const payload = { ...cvData };
 
       if (selectedFile) {
         const formData = new FormData();
-        // Adjuntamos el archivo bajo el nombre 'cvPdf' que espera el backend
         formData.append('cvPdf', selectedFile, selectedFile.name);
-
-        // Creamos una copia de payload para no modificar el estado
         const dataToSend = { ...payload };
 
-        // Adjuntamos el resto de los campos al FormData
         for (const key in dataToSend) {
           const value = dataToSend[key];
-          // Los objetos (como 'direccion' o 'experiencia') se convierten a JSON
           if (['experiencia', 'educacion'].includes(key) || (typeof value === 'object' && value !== null)) {
             formData.append(key, JSON.stringify(value));
           } else if (value !== null && value !== undefined) {
@@ -150,7 +145,6 @@ export default function ProfileWizard() {
         }
         await upsertMyCv(formData);
       } else {
-        // Si no hay archivo, enviamos solo los datos del CV como JSON
         await upsertMyCvJson(payload);
       }
 
@@ -160,7 +154,6 @@ export default function ProfileWizard() {
       setActiveStep(0);
     } catch (e) {
       console.error(e);
-      // Mensaje de error más específico si es posible
       const errorMsg = e.response?.data?.message || "Error al guardar el perfil.";
       setSnack({ open: true, severity: "error", msg: errorMsg });
     } finally {
@@ -191,7 +184,6 @@ export default function ProfileWizard() {
         return { completed: hasEdu, error: !hasEdu };
       }
       case 3: { // Experiencia
-        // Corregido: Solo marcar completado si hay al menos una experiencia con datos reales
         const hasExp = cvData.experiencia && cvData.experiencia.some(e => (e.puesto && e.puesto.trim()) || (e.empresa && e.empresa.trim()));
         return { completed: hasExp, error: false };
       }
@@ -229,7 +221,7 @@ export default function ProfileWizard() {
           newFile={selectedFile}
         />
       );
-      case 5: return <ReviewAndSaveForm data={cvData} newFile={selectedFile} />; // El paso final ya es una revisión completa
+      case 5: return <ReviewAndSaveForm data={cvData} newFile={selectedFile} />;
       default: return 'Paso desconocido';
     }
   };
@@ -311,7 +303,7 @@ const ContactDataReviewCard = ({ data }) => (
     <Typography>
       Ubicación: {
         [
-          (data.direccion?.localidad?.nombre ?? data.direccion?.localidad), // <-- CORRECCIÓN AQUÍ
+          (data.direccion?.localidad?.nombre ?? data.direccion?.localidad),
           data.direccion?.provincia?.nombre
         ].filter(Boolean).join(', ') || '—'
       }
@@ -369,7 +361,7 @@ const CvFileDataReviewCard = ({ data, newFile }) => {
   );
 };
 
-// --- Componentes de Formulario por Paso (Modificados) ---
+// --- Componentes de Formulario ---
 
 const PersonalForm = ({ data, onChange, reviewData }) => {
   const age = calculateAge(data.nacimiento);
@@ -381,7 +373,7 @@ const PersonalForm = ({ data, onChange, reviewData }) => {
   return (
     <Fade in={true}>
       <Grid container spacing={4} wrap="wrap">
-        <Grid xs={12} md={7}>
+        <Grid item xs={12} md={7}>
           <Stack spacing={3}>
             <Typography variant="h6" gutterBottom>Cuéntanos un poco sobre ti</Typography>
             <TextField label="Nombre *" value={data.nombre || ''} onChange={e => onChange('nombre', e.target.value)} fullWidth />
@@ -399,8 +391,10 @@ const PersonalForm = ({ data, onChange, reviewData }) => {
             <TextField label="Resumen Profesional" multiline rows={4} value={data.perfil || ''} onChange={e => onChange('perfil', e.target.value)} fullWidth />
           </Stack>
         </Grid>
-        <Grid xs={12} md={5}>
-          <PersonalDataReviewCard data={reviewData} />
+        <Grid item xs={12} md={5}>
+          <Box sx={{ position: { md: 'sticky' }, top: 20 }}>
+            <PersonalDataReviewCard data={reviewData} />
+          </Box>
         </Grid>
       </Grid>
     </Fade>
@@ -410,7 +404,7 @@ const PersonalForm = ({ data, onChange, reviewData }) => {
 const ContactLocationForm = ({ data, onFieldChange, onDireccionChange, reviewData }) => (
   <Fade in={true}>
     <Grid container spacing={4}>
-      <Grid xs={12} md={7}>
+      <Grid item xs={12} md={7}>
         <Stack spacing={3}>
           <Typography variant="h6" gutterBottom>Información de Contacto y Ubicación</Typography>
           <TextField label="Email *" value={data.email || ''} onChange={e => onFieldChange('email', e.target.value)} fullWidth />
@@ -419,8 +413,10 @@ const ContactLocationForm = ({ data, onFieldChange, onDireccionChange, reviewDat
           <DireccionAR value={data.direccion || null} onChange={onDireccionChange} required />
         </Stack>
       </Grid>
-      <Grid xs={12} md={5}>
-        <ContactDataReviewCard data={reviewData} />
+      <Grid item xs={12} md={5}>
+         <Box sx={{ position: { md: 'sticky' }, top: 20 }}>
+            <ContactDataReviewCard data={reviewData} />
+         </Box>
       </Grid>
     </Grid>
   </Fade>
@@ -428,6 +424,7 @@ const ContactLocationForm = ({ data, onFieldChange, onDireccionChange, reviewDat
 
 const EducationForm = ({ data, onChange, reviewData }) => {
   const educations = data || [];
+  const theme = useTheme();
 
   const addEducation = () => onChange([...educations, { nivelAcademico: '', carrera: '', institucion: '', desde: '', hasta: '' }]);
   const removeEducation = (idx) => onChange(educations.filter((_, i) => i !== idx));
@@ -436,36 +433,193 @@ const EducationForm = ({ data, onChange, reviewData }) => {
     onChange(newEducations);
   };
 
+  const getYearVal = (val) => {
+    if (!val) return '';
+    const d = new Date(val);
+    return isNaN(d.getFullYear()) ? '' : d.getFullYear();
+  };
+
   return (
     <Fade in={true}>
       <Grid container spacing={4}>
-        <Grid xs={12} md={7}>
+        <Grid item xs={12} md={7}>
           <Stack spacing={3}>
-            <Typography variant="h6" gutterBottom>Tu Trayectoria Académica</Typography>
+            <Box>
+              <Typography variant="h6" gutterBottom>Tu Trayectoria Académica</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Agrega tus estudios formales, cursos o certificaciones relevantes.
+              </Typography>
+            </Box>
+
             {educations.map((edu, idx) => (
-              <Card key={idx} variant="outlined" sx={{ p: 2 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography variant="subtitle1" fontWeight="medium">Estudio #{idx + 1}</Typography>
-                  <IconButton color="error" size="small" onClick={() => removeEducation(idx)}><DeleteIcon /></IconButton>
+              <Card 
+                key={idx} 
+                variant="outlined" 
+                sx={{ 
+                  p: 3, 
+                  position: 'relative',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: theme.shadows[2],
+                    borderColor: 'primary.main'
+                  }
+                }}
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Box sx={{ 
+                      width: 28, height: 28, borderRadius: '50%', 
+                      bgcolor: 'primary.main', color: 'white',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.85rem', fontWeight: 'bold'
+                    }}>
+                      {idx + 1}
+                    </Box>
+                    <Typography variant="subtitle2" fontWeight="bold" color="text.primary">
+                      Detalle del Estudio
+                    </Typography>
+                  </Stack>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => removeEducation(idx)} 
+                    color="error"
+                    sx={{ bgcolor: 'error.50', '&:hover': { bgcolor: 'error.100' } }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
                 </Box>
+                
+                <Divider sx={{ mb: 3 }} />
+
                 <Grid container spacing={2}>
-                  <Grid xs={12} >
-                    <TextField select fullWidth label="Nivel Académico" value={edu.nivelAcademico || ''} onChange={e => updateEducation(idx, 'nivelAcademico', e.target.value)} >
-                      {nivelesAcademicos.map(n => <MenuItem key={n} value={n}>{n}</MenuItem>)}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      select
+                      label="Nivel Académico"
+                      value={edu.nivelAcademico || ''}
+                      onChange={e => updateEducation(idx, 'nivelAcademico', e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <CertificateIcon fontSize="small" color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    >
+                      {nivelesAcademicos.map(n => (
+                        <MenuItem key={n} value={n}>{n}</MenuItem>
+                      ))}
                     </TextField>
                   </Grid>
-                  <Grid xs={12}><TextField label="Nombre de la carrera / Título Obtenido" value={edu.carrera || ''} onChange={e => updateEducation(idx, 'carrera', e.target.value)} fullWidth /></Grid>
-                  <Grid xs={12}><TextField label="Institución Educativa" value={edu.institucion || ''} onChange={e => updateEducation(idx, 'institucion', e.target.value)} fullWidth /></Grid>
-                  <Grid xs={12} sm={6}><TextField type="date" label="Desde" value={String(edu.desde || '').slice(0, 10)} InputLabelProps={{ shrink: true }} onChange={e => updateEducation(idx, 'desde', e.target.value)} fullWidth /></Grid>
-                  <Grid xs={12} sm={6}><TextField type="date" label="Hasta" value={String(edu.hasta || '').slice(0, 10)} InputLabelProps={{ shrink: true }} onChange={e => updateEducation(idx, 'hasta', e.target.value)} fullWidth /></Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Título / Carrera"
+                      placeholder="Ej. Licenciatura en Finanzas"
+                      value={edu.carrera || ''}
+                      onChange={e => updateEducation(idx, 'carrera', e.target.value)}
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SchoolIcon fontSize="small" color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Institución Educativa"
+                      placeholder="Ej. Universidad de Buenos Aires"
+                      value={edu.institucion || ''}
+                      onChange={e => updateEducation(idx, 'institucion', e.target.value)}
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <BusinessIcon fontSize="small" color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      select
+                      label="Desde (Año)"
+                      value={getYearVal(edu.desde)}
+                      onChange={e => updateEducation(idx, 'desde', `${e.target.value}-01-01`)}
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <CalendarIcon fontSize="small" color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    >
+                      {yearsList.map(y => (
+                        <MenuItem key={y} value={y}>{y}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      select
+                      label="Hasta (Año)"
+                      value={getYearVal(edu.hasta)}
+                      onChange={e => updateEducation(idx, 'hasta', `${e.target.value}-01-01`)}
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <CalendarIcon fontSize="small" color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    >
+                      {yearsList.map(y => (
+                        <MenuItem key={y} value={y}>{y}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
                 </Grid>
               </Card>
             ))}
-            <Button startIcon={<AddIcon />} onClick={addEducation} variant="text" sx={{ alignSelf: 'flex-start' }}>Añadir Estudio</Button>
+
+            <Button 
+              startIcon={<AddIcon />} 
+              onClick={addEducation} 
+              fullWidth
+              variant="outlined" 
+              sx={{ 
+                borderStyle: 'dashed', 
+                borderWidth: '2px',
+                color: 'text.secondary',
+                justifyContent: 'center',
+                py: 1.5,
+                '&:hover': {
+                  borderWidth: '2px',
+                  borderColor: 'primary.main',
+                  color: 'primary.main',
+                  bgcolor: 'action.hover'
+                }
+              }}
+            >
+              Añadir otro estudio
+            </Button>
           </Stack>
         </Grid>
-        <Grid xs={12} md={5}>
-          <EducationDataReviewCard data={reviewData} />
+
+        <Grid item xs={12} md={5}>
+          <Box sx={{ position: { md: 'sticky' }, top: 20 }}>
+            <EducationDataReviewCard data={reviewData} />
+          </Box>
         </Grid>
       </Grid>
     </Fade>
@@ -474,6 +628,7 @@ const EducationForm = ({ data, onChange, reviewData }) => {
 
 const ExperienceForm = ({ data, onChange, reviewData }) => {
   const experiences = data || [];
+  const theme = useTheme(); // Para usar theme en sombras
 
   const addExperience = () => onChange([...experiences, { puesto: '', empresa: '', desde: '', hasta: '' }]);
   const removeExperience = (idx) => onChange(experiences.filter((_, i) => i !== idx));
@@ -485,42 +640,139 @@ const ExperienceForm = ({ data, onChange, reviewData }) => {
   return (
     <Fade in={true}>
       <Grid container spacing={4}>
-        <Grid xs={12} md={7}>
+        <Grid item xs={12} md={7}>
           <Stack spacing={3}>
-            <Typography variant="h6" gutterBottom>Tu Historial Laboral</Typography>
+            <Box>
+              <Typography variant="h6" gutterBottom>Tu Historial Laboral</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Detalla tus experiencias laborales previas relevantes.
+              </Typography>
+            </Box>
+
             {experiences.map((exp, idx) => (
-              <Card key={exp._id || idx} variant="outlined" sx={{ p: 2 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography variant="subtitle1" fontWeight="medium">Experiencia #{idx + 1}</Typography>
-                  <IconButton color="error" size="small" onClick={() => removeExperience(idx)}><DeleteIcon /></IconButton>
+              <Card 
+                key={exp._id || idx} 
+                variant="outlined" 
+                sx={{ 
+                  p: 3, 
+                  position: 'relative',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: theme.shadows[2],
+                    borderColor: 'primary.main'
+                  }
+                }}
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Box sx={{ 
+                      width: 28, height: 28, borderRadius: '50%', 
+                      bgcolor: 'primary.main', color: 'white',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.85rem', fontWeight: 'bold'
+                    }}>
+                      {idx + 1}
+                    </Box>
+                    <Typography variant="subtitle2" fontWeight="bold" color="text.primary">
+                      Detalle de la Experiencia
+                    </Typography>
+                  </Stack>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => removeExperience(idx)} 
+                    color="error"
+                    sx={{ bgcolor: 'error.50', '&:hover': { bgcolor: 'error.100' } }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
                 </Box>
+                
+                <Divider sx={{ mb: 3 }} />
+
                 <Grid container spacing={2}>
-                  <Grid xs={12}><TextField label="Puesto / Título" value={exp.puesto || ''} onChange={e => updateExperience(idx, 'puesto', e.target.value)} fullWidth /></Grid>
-                  <Grid xs={12}><TextField label="Empresa" value={exp.empresa || ''} onChange={e => updateExperience(idx, 'empresa', e.target.value)} fullWidth /></Grid>
-                  <Grid xs={6}><TextField type="date" label="Desde" value={String(exp.desde || '').slice(0, 10)} InputLabelProps={{ shrink: true }} onChange={e => updateExperience(idx, 'desde', e.target.value)} fullWidth /></Grid>
-                  <Grid xs={6}><TextField type="date" label="Hasta" value={String(exp.hasta || '').slice(0, 10)} InputLabelProps={{ shrink: true }} onChange={e => updateExperience(idx, 'hasta', e.target.value)} fullWidth /></Grid>
+                  <Grid item xs={12}>
+                    <TextField 
+                      label="Puesto / Título" 
+                      value={exp.puesto || ''} 
+                      onChange={e => updateExperience(idx, 'puesto', e.target.value)} 
+                      fullWidth 
+                      InputProps={{ startAdornment: (<InputAdornment position="start"><WorkIcon fontSize="small" color="action" /></InputAdornment>) }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField 
+                      label="Empresa" 
+                      value={exp.empresa || ''} 
+                      onChange={e => updateExperience(idx, 'empresa', e.target.value)} 
+                      fullWidth 
+                      InputProps={{ startAdornment: (<InputAdornment position="start"><BusinessIcon fontSize="small" color="action" /></InputAdornment>) }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField 
+                      type="date" 
+                      label="Desde" 
+                      value={String(exp.desde || '').slice(0, 10)} 
+                      InputLabelProps={{ shrink: true }} 
+                      onChange={e => updateExperience(idx, 'desde', e.target.value)} 
+                      fullWidth 
+                      InputProps={{ startAdornment: (<InputAdornment position="start"><CalendarIcon fontSize="small" color="action" /></InputAdornment>) }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField 
+                      type="date" 
+                      label="Hasta" 
+                      value={String(exp.hasta || '').slice(0, 10)} 
+                      InputLabelProps={{ shrink: true }} 
+                      onChange={e => updateExperience(idx, 'hasta', e.target.value)} 
+                      fullWidth 
+                      InputProps={{ startAdornment: (<InputAdornment position="start"><CalendarIcon fontSize="small" color="action" /></InputAdornment>) }}
+                    />
+                  </Grid>
                 </Grid>
               </Card>
             ))}
-            <Button startIcon={<AddIcon />} onClick={addExperience} variant="text" sx={{ alignSelf: 'flex-start' }}>Añadir Experiencia</Button>
+            
+            <Button 
+              startIcon={<AddIcon />} 
+              onClick={addExperience} 
+              fullWidth
+              variant="outlined" 
+              sx={{ 
+                borderStyle: 'dashed', 
+                borderWidth: '2px',
+                color: 'text.secondary',
+                justifyContent: 'center',
+                py: 1.5,
+                '&:hover': {
+                  borderWidth: '2px',
+                  borderColor: 'primary.main',
+                  color: 'primary.main',
+                  bgcolor: 'action.hover'
+                }
+              }}
+            >
+              Añadir otra experiencia
+            </Button>
           </Stack>
         </Grid>
-        <Grid xs={12} md={5}>
-          <ExperienceDataReviewCard data={reviewData} />
+        <Grid item xs={12} md={5}>
+          <Box sx={{ position: { md: 'sticky' }, top: 20 }}>
+            <ExperienceDataReviewCard data={reviewData} />
+          </Box>
         </Grid>
       </Grid>
     </Fade>
   );
 };
 
-// --- Componente UploadCV con el botón de descarga corregido ---
 const UploadCV = ({ existingFile, lastUpdated, onFileSelect, reviewData, newFile }) => {
   const [selectedFileName, setSelectedFileName] = useState(newFile?.name || "");
   const [isDownloading, setIsDownloading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [openPreview, setOpenPreview] = useState(false);
 
-  // Corrección: verificar ambas propiedades por si el backend envía fileName o filename
   const fallbackName = reviewData?.nombre ? `CV_${reviewData.nombre.replace(/\s+/g, '_')}_${(reviewData.apellido || '').replace(/\s+/g, '_')}.pdf` : "CV_Actual.pdf";
   const existingFileName = existingFile?.fileName || existingFile?.filename || (existingFile?.providerId ? fallbackName : null);
 
@@ -562,7 +814,7 @@ const UploadCV = ({ existingFile, lastUpdated, onFileSelect, reviewData, newFile
   return (
     <Fade in={true}>
       <Grid container spacing={4}>
-        <Grid xs={12} md={7}>
+        <Grid item xs={12} md={7}>
           <Stack spacing={3}>
             <Typography variant="h6" gutterBottom>Adjunta tu CV (Formato PDF)</Typography>
             <Typography variant="body2" color="text.secondary">
@@ -645,7 +897,7 @@ const UploadCV = ({ existingFile, lastUpdated, onFileSelect, reviewData, newFile
             </Dialog>
           </Stack>
         </Grid>
-        <Grid xs={12} md={5}>
+        <Grid item xs={12} md={5}>
           <CvFileDataReviewCard data={reviewData} newFile={newFile} />
         </Grid>
       </Grid>
@@ -657,7 +909,6 @@ const ReviewAndSaveForm = ({ data, newFile }) => (
   <Fade in={true}>
     <Stack spacing={3}>
       <Typography variant="h6" gutterBottom>Revisa que toda tu información sea correcta</Typography>
-      {/* Usamos los mismos componentes de resumen para consistencia */}
       <PersonalDataReviewCard data={data} />
       <ContactDataReviewCard data={data} />
       <EducationDataReviewCard data={data} />
